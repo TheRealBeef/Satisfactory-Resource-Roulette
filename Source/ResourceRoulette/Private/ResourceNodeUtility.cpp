@@ -43,15 +43,9 @@ void FResourceNodeUtilityLog::Serialize(const TCHAR* V, ELogVerbosity::Type Verb
 	if (Category == TEXT("LogResourceRoulette"))
 	{
 		FString LogMessage(V);
-
-		int32 PrefixEndIndex = LogMessage.Find(TEXT("LogResourceRoulette: "));
-		if (PrefixEndIndex != INDEX_NONE)
-		{
-			LogMessage = LogMessage.Mid(PrefixEndIndex + 19);
-		}
 		if (LogFile)
 		{
-			LogFile->Serialize(*LogMessage, Verbosity, Category);
+			LogFile->Serialize(*LogMessage, Verbosity, TEXT("")); // Pass an empty category name
 		}
 	}
 }
@@ -74,21 +68,24 @@ void FResourceNodeUtilityLog::LogMessage(const FString& Message, ELogLevel Level
 	if (static_cast<int32>(Level) >= CurrentLogLevel)
 	{
 		FScopeLock Lock(&LogFileMutex);
+		FString FormattedMessage = Message;
+
 		switch (Level)
 		{
 		case ELogLevel::Error:
-			UE_LOG(LogResourceRoulette, Error, TEXT("%s"), *Message);
+			Serialize(*FormattedMessage, ELogVerbosity::Error, FName("LogResourceRoulette"));
 			break;
 		case ELogLevel::Warning:
-			UE_LOG(LogResourceRoulette, Warning, TEXT("%s"), *Message);
+			Serialize(*FormattedMessage, ELogVerbosity::Warning, FName("LogResourceRoulette"));
 			break;
 		case ELogLevel::Debug:
 		default:
-			UE_LOG(LogResourceRoulette, Log, TEXT("%s"), *Message);
+			Serialize(*FormattedMessage, ELogVerbosity::Log, FName("LogResourceRoulette"));
 			break;
 		}
 	}
 }
+
 
 void UResourceNodeUtility::InitializeLoggingModule()
 {
