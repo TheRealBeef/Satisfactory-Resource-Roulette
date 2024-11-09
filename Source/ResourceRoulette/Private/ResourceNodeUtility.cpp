@@ -5,6 +5,8 @@
 #include "FGResourceNode.h"
 #include "HAL/IConsoleManager.h"
 #include "ResourceNodeAssets.h"
+#include "Misc/FileHelper.h"
+#include "HAL/PlatformFilemanager.h"
 
 // UE_DISABLE_OPTIMIZATION
 DEFINE_LOG_CATEGORY_STATIC(LogResourceRoulette, Log, All);
@@ -23,68 +25,94 @@ FResourceNodeUtilityLog& FResourceNodeUtilityLog::Get()
 
 void FResourceNodeUtilityLog::InitializeLog()
 {
-	FScopeLock Lock(&LogFileMutex);
-	if (!LogFile)
+	if (bUseCustomLogFile)
 	{
-		FString LogFilePath = FPaths::Combine(
-			FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA")),
-			TEXT("FactoryGame/Saved/Logs/ResourceRoulette.log")
-		);
-		LogFile = new FOutputDeviceFile(*LogFilePath, true);
-		LogFile->SetAutoEmitLineTerminator(true);
-		GLog->AddOutputDevice(this);
-		LogMessage("Resource Roulette Module Log Startup", ELogLevel::Debug);
-	}
-}
-
-
-void FResourceNodeUtilityLog::Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category)
-{
-	if (Category == TEXT("LogResourceRoulette"))
-	{
-		FString LogMessage(V);
-		if (LogFile)
+		FScopeLock Lock(&LogFileMutex);
+		if (!LogFile)
 		{
-			LogFile->Serialize(*LogMessage, Verbosity, TEXT("")); // Pass an empty category name
+			FString LogFilePath = FPaths::Combine(
+				FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA")),
+				TEXT("FactoryGame/Saved/Logs/ResourceRoulette.log")
+			);
+
+			IFileManager& FileManager = IFileManager::Get();
+			FileManager.Delete(*LogFilePath);
+			LogFile = new FString(LogFilePath);
+
+			RawLogMessage(TEXT("Resource Roulette Module Log Startup"));
 		}
 	}
 }
 
-void FResourceNodeUtilityLog::ShutdownLog()
+void FResourceNodeUtilityLog::SetUseCustomLogFile(bool bEnableCustomLogFile)
+{
+	bUseCustomLogFile = bEnableCustomLogFile;
+}
+
+void FResourceNodeUtilityLog::RawLogMessage(const FString& Message)
 {
 	FScopeLock Lock(&LogFileMutex);
-	if (LogFile)
+	if (LogFile && !LogFile->IsEmpty())
 	{
-		LogMessage("Resource Roulette Module Log Shutdown", ELogLevel::Debug);
-		GLog->RemoveOutputDevice(this);
-		delete LogFile;
-		LogFile = nullptr;
+		FString LogFilePath = *LogFile;
+		FString FormattedMessage = Message + LINE_TERMINATOR;
+
+		FFileHelper::SaveStringToFile(FormattedMessage, *LogFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
 	}
 }
 
+// This is the C++  callable version of custom log
 void FResourceNodeUtilityLog::LogMessage(const FString& Message, ELogLevel Level)
 {
 	int32 CurrentLogLevel = CVarLogLevel.GetValueOnAnyThread();
 	if (static_cast<int32>(Level) >= CurrentLogLevel)
 	{
-		FScopeLock Lock(&LogFileMutex);
-		FString FormattedMessage = Message;
-
-		switch (Level)
+		if (bUseCustomLogFile && LogFile)
 		{
-		case ELogLevel::Error:
-			Serialize(*FormattedMessage, ELogVerbosity::Error, FName("LogResourceRoulette"));
-			break;
-		case ELogLevel::Warning:
-			Serialize(*FormattedMessage, ELogVerbosity::Warning, FName("LogResourceRoulette"));
-			break;
-		case ELogLevel::Debug:
-		default:
-			Serialize(*FormattedMessage, ELogVerbosity::Log, FName("LogResourceRoulette"));
-			break;
+			RawLogMessage(Message);
+		}
+		else
+		{
+			switch (Level)
+			{
+			case ELogLevel::Error:
+				UE_LOG(LogResourceRoulette, Error, TEXT("%s"), *Message);
+				break;
+			case ELogLevel::Warning:
+				UE_LOG(LogResourceRoulette, Warning, TEXT("%s"), *Message);
+				break;
+			case ELogLevel::Debug:
+			default:
+				UE_LOG(LogResourceRoulette, Log, TEXT("%s"), *Message);
+				break;
+			}
 		}
 	}
 }
+
+// This is the blueprint callable version of custom log
+void UResourceNodeUtility::UseCustomLogFile(bool bEnableCustomLogFile)
+{
+	FResourceNodeUtilityLog::Get().SetUseCustomLogFile(bEnableCustomLogFile);
+}
+
+void UResourceNodeUtility::LogMessage(const FString& Message, EBlueprintLogLevel Level)
+{
+	FResourceNodeUtilityLog& Logger = FResourceNodeUtilityLog::Get();
+	Logger.LogMessage(Message, static_cast<ELogLevel>(Level));
+}
+
+void FResourceNodeUtilityLog::ShutdownLog()
+{
+	if (bUseCustomLogFile && LogFile)
+	{
+		RawLogMessage(TEXT("Resource Roulette Module Log Shutdown"));
+		delete LogFile;
+		LogFile = nullptr;
+	}
+}
+
+
 
 
 void UResourceNodeUtility::InitializeLoggingModule()

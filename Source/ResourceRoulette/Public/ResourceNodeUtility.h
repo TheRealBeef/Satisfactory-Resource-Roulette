@@ -87,22 +87,40 @@ enum class ELogLevel
 	Error = 0
 };
 
+UENUM(BlueprintType)
+enum class EBlueprintLogLevel : uint8
+{
+	Error UMETA(DisplayName = "Error"),
+	Warning UMETA(DisplayName = "Warning"),
+	Debug UMETA(DisplayName = "Debug")
+};
+
+
 const FName CustomResourceNodeTag = "CustomResourceNode";
 
-class RESOURCEROULETTE_API FResourceNodeUtilityLog : public FOutputDevice
+class FResourceNodeUtilityLog
 {
 public:
 	static FResourceNodeUtilityLog& Get();
+
 	void InitializeLog();
 	void ShutdownLog();
-	void LogMessage(const FString& Message, ELogLevel Level = ELogLevel::Debug);
-	virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category) override;
+	void LogMessage(const FString& Message, ELogLevel Level);
+	void SetUseCustomLogFile(bool bEnableCustomLogFile);
 	
 private:
+	bool bUseCustomLogFile = true;
+	
 	FResourceNodeUtilityLog() = default;
-	static FResourceNodeUtilityLog Instance;
-	FOutputDeviceFile* LogFile = nullptr;
+	FResourceNodeUtilityLog(const FResourceNodeUtilityLog&) = delete;
+	FResourceNodeUtilityLog& operator=(const FResourceNodeUtilityLog&) = delete;
+
+	void RawLogMessage(const FString& Message);
+	
+	FString* LogFile = nullptr;
 	FCriticalSection LogFileMutex;
+
+	static FResourceNodeUtilityLog Instance;
 };
 
 UCLASS()
@@ -112,6 +130,12 @@ class RESOURCEROULETTE_API UResourceNodeUtility: public UObject
 GENERATED_BODY()
 
 public:
+	UFUNCTION(BlueprintCallable, Category = "Resource Roulette")
+	static void UseCustomLogFile(bool bEnableCustomLogFile);
+
+	UFUNCTION(BlueprintCallable, Category = "Resource Roulette")
+	static void LogMessage(const FString& Message, EBlueprintLogLevel Level);
+	
 	UFUNCTION(BlueprintCallable, Category = "Resource Roulette")
 	static void InitializeLoggingModule();
 	
