@@ -21,7 +21,9 @@ void AResourceRouletteSubsystem::InitializeResourceRoulette()
 {
     if (!GetWorld()) return;
     ResourceNodeSpawner = NewObject<UResourceNodeSpawner>(this);
+    
     SetupWorldSeedManager(GetWorld());
+    
     bResourcesInitialized = true;
     constexpr float UpdateInterval = 1.5f;
     GetWorld()->GetTimerManager().SetTimer(UpdateTimerHandle, this, &AResourceRouletteSubsystem::UpdateResourceNodes, UpdateInterval, true);
@@ -40,9 +42,19 @@ void AResourceRouletteSubsystem::SetupWorldSeedManager(UWorld* World)
         FActorSpawnParameters SpawnParams;
         SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
         SeedManager = World->SpawnActor<AWorldSeedManager>(AWorldSeedManager::StaticClass(), FTransform(FVector()), SpawnParams);
-        if (SeedManager.IsValid())
+    }
+    if (SeedManager.IsValid())
+    {
+        if (SessionSeed == -1)
         {
             SeedManager->InitRandom();
+            SessionSeed = SeedManager->GetGlobalSeed();
+            FResourceNodeUtilityLog::Get().LogMessage(FString::Printf(TEXT("Generated new Global Seed: %d"), SessionSeed), ELogLevel::Debug);
+        }
+        else
+        {
+            SeedManager->SetGlobalSeed(SessionSeed);
+            FResourceNodeUtilityLog::Get().LogMessage(FString::Printf(TEXT("Set Global Seed: %d"), SessionSeed), ELogLevel::Debug);
         }
     }
 }
@@ -66,4 +78,19 @@ void AResourceRouletteSubsystem::EndPlay(const EEndPlayReason::Type EndPlayReaso
 {
     GetWorld()->GetTimerManager().ClearTimer(UpdateTimerHandle);
     Super::EndPlay(EndPlayReason);
+}
+
+void AResourceRouletteSubsystem::PreSaveGame_Implementation(int32 SaveVersion, int32 GameVersion)
+{
+    SavedSeed = SessionSeed;
+    FResourceNodeUtilityLog::Get().LogMessage(FString::Printf(TEXT("PreSaveGame: Seed for Save: %d"), SavedSeed), ELogLevel::Debug);
+}
+
+void AResourceRouletteSubsystem::PostLoadGame_Implementation(int32 SaveVersion, int32 GameVersion)
+{
+    if (SavedSeed != -1)
+    {
+        SessionSeed = SavedSeed;
+        FResourceNodeUtilityLog::Get().LogMessage(FString::Printf(TEXT("PostLoadGame: Loaded Saved Seed: %d"), SessionSeed), ELogLevel::Debug);
+    }
 }

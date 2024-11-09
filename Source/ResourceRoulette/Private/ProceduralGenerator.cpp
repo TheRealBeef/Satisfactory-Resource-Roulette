@@ -1,7 +1,7 @@
 ﻿#include "ProceduralGenerator.h"
 #include "Math/UnrealMathUtility.h"
 
-FProceduralGenerator::FProceduralGenerator() : Seed(InvalidSeed) {}
+FProceduralGenerator::FProceduralGenerator() {}
 FProceduralGenerator::FProceduralGenerator(int32 const InSeed) : Seed(InSeed) {}
 
 int32 FProceduralGenerator::ProceduralRangeIntByVector(const FVector& Input, const int32 Min, const int32 MaxInclusive) const
