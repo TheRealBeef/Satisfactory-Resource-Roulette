@@ -3,8 +3,8 @@
 #include "CoreMinimal.h"
 #include "Subsystem/ModSubsystem.h"
 #include "FGSaveInterface.h"
-#include "ResourceNodeSpawner.h"
-#include "WorldSeedManager.h"
+#include "ResourceRouletteManager.h"
+#include "ResourceRouletteSeedManager.h"
 #include "ResourceRouletteSubsystem.generated.h"
 
 UCLASS()
@@ -13,7 +13,7 @@ class RESOURCEROULETTE_API AResourceRouletteSubsystem : public AModSubsystem, pu
 	GENERATED_BODY()
 
 public:
-	AResourceRouletteSubsystem() : SavedSeed(-1), ResourceNodeSpawner(nullptr)	{}
+	AResourceRouletteSubsystem();
 
 	static AResourceRouletteSubsystem* Get(const UObject* WorldContext);
 
@@ -21,11 +21,11 @@ public:
 	void InitializeResourceRoulette();
 
 	UFUNCTION(BlueprintCallable)
-	void UpdateResourceNodes();
+	void UpdateResourceRoulette();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	bool AreResourcesInitialized() const { return bResourcesInitialized; }
-	
+	bool IsInitialized() const { return bIsInitialized; }
+
 	virtual bool ShouldSave_Implementation() const override { return true; }
 	virtual void PreSaveGame_Implementation(int32 SaveVersion, int32 GameVersion) override;
 	virtual void PostLoadGame_Implementation(int32 SaveVersion, int32 GameVersion) override;
@@ -33,17 +33,17 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	
-	void SetupWorldSeedManager(UWorld* World);
+
+	void InitializeWorldSeedManager(UWorld* World);
 
 private:
 	int32 SessionSeed = -1;
-	
+
 	UPROPERTY(SaveGame)
 	int32 SavedSeed;
-	bool bResourcesInitialized = false;
-	TWeakObjectPtr<AWorldSeedManager> SeedManager;
+	bool bIsInitialized = false;
+	TWeakObjectPtr<AResourceRouletteSeedManager> SeedManager;
 	UPROPERTY()
-	UResourceNodeSpawner* ResourceNodeSpawner;
+	UResourceRouletteManager* ResourceRouletteManager;
 	FTimerHandle UpdateTimerHandle;
 };
