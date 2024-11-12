@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
+#include "ResourceAssets.generated.h"
 
 USTRUCT()
 struct FResourceRouletteAssetSolid
@@ -13,8 +14,8 @@ struct FResourceRouletteAssetSolid
     UPROPERTY() FVector MeshOffset;
     UPROPERTY() FVector MeshScale;
 };
-USTRUCT()
 
+USTRUCT()
 struct FResourceRouletteAssetHeat
 {
     GENERATED_BODY()
@@ -31,7 +32,7 @@ struct FResourceRouletteAssetLiquid
     GENERATED_BODY()
     
     UPROPERTY() TArray<FString> MaterialPaths;
-    UPROPERTY() float DecalSize;;
+    UPROPERTY() float DecalSize;
 
 };
 
@@ -46,9 +47,11 @@ struct FResourceRouletteAssetFracking
     UPROPERTY() FVector MeshScale;
 };
 
-
-class UResourceRouletteAssets
+UCLASS()
+class UResourceRouletteAssets : public UObject
 {
+    GENERATED_BODY()
+    
 public:
 
     static const TMap<FName, FResourceRouletteAssetSolid> SolidResourceInfoMap;
@@ -72,7 +75,7 @@ public:
     static float GetLiquidDecalScale (const FName& ResourceClass);
     
     static TArray<FString> GetFrackingMeshes(const FName& ResourceClass);
-    static TArray<FString> GetFrackingMaterisl (const FName& ResourceClass);
+    static TArray<FString> GetFrackingMaterials (const FName& ResourceClass);
     static FVector GetFrackingOffset (const FName& ResourceClass);
     static FVector GetFrackingScale (const FName& ResourceClass);
 };
