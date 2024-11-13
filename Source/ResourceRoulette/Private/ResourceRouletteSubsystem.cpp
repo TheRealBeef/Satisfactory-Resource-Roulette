@@ -6,10 +6,17 @@
 #include "ResourceRouletteUtility.h"
 #include "EngineUtils.h"
 
+/// Init the fields on construction or bad things happen
 AResourceRouletteSubsystem::AResourceRouletteSubsystem()
 {
-	SavedSeed = -1;
 	ResourceRouletteManager = nullptr;
+	SeedManager = nullptr;
+	SavedSeed = -1;
+	SavedAlreadySpawned = false;
+	SavedCollectedResourceNodes.Empty();
+	SessionSeed = -1;
+	SessionAlreadySpawned = false;
+	SessionCollectedResourceNodes.Empty();
 }
 
 AResourceRouletteSubsystem* AResourceRouletteSubsystem::Get(const UObject* WorldContext)
@@ -43,6 +50,7 @@ void AResourceRouletteSubsystem::InitializeResourceRoulette()
 	GetWorld()->GetTimerManager().SetTimer(UpdateTimerHandle, this, &AResourceRouletteSubsystem::UpdateResourceRoulette,
 	                                       UpdateInterval, true);
 	FResourceRouletteUtilityLog::Get().LogMessage("Resource Roulette initialized successfully.", ELogLevel::Debug);
+	UpdateResourceRoulette();
 }
 
 /// Checks if seed manager is created, if not it spawns a new one
@@ -57,14 +65,14 @@ void AResourceRouletteSubsystem::InitializeWorldSeedManager(UWorld* World)
 		SeedManager = *It;
 		break;
 	}
-	if (!SeedManager.IsValid())
+	if (!SeedManager)
 	{
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 		SeedManager = World->SpawnActor<AResourceRouletteSeedManager>(AResourceRouletteSeedManager::StaticClass(),
 		                                                              FTransform(FVector()), SpawnParams);
 	}
-	if (SeedManager.IsValid())
+	if (SeedManager)
 	{
 		if (SessionSeed == -1)
 		{
@@ -83,17 +91,15 @@ void AResourceRouletteSubsystem::InitializeWorldSeedManager(UWorld* World)
 }
 
 /// Update method, called on timer by subsystem
-void AResourceRouletteSubsystem::UpdateResourceRoulette()
+void AResourceRouletteSubsystem::UpdateResourceRoulette() const
 {
-	if (!GEngine || !GetWorld() || !ResourceRouletteManager || !SeedManager.IsValid())
+	if (!GEngine || !GetWorld() || !ResourceRouletteManager || !SeedManager)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage("UpdateResourceRoulette aborted: Missing dependencies.",
 		                                              ELogLevel::Error);
 		return;
 	}
-	ResourceRouletteManager->ScanWorldResourceNodes(GetWorld());
-	// ResourceRouletteManager->UpdateWorldResourceNodes(GetWorld());
-
+	ResourceRouletteManager->Update(GetWorld(), SeedManager);
 	FResourceRouletteUtilityLog::Get().LogMessage("Resource nodes updated successfully.", ELogLevel::Debug);
 }
 
@@ -106,17 +112,19 @@ void AResourceRouletteSubsystem::EndPlay(const EEndPlayReason::Type EndPlayReaso
 	Super::EndPlay(EndPlayReason);
 }
 
-/// Writes our seed value to the savefile
+/// Writes our data to the savefile
 /// @param SaveVersion 
 /// @param GameVersion 
 void AResourceRouletteSubsystem::PreSaveGame_Implementation(int32 SaveVersion, int32 GameVersion)
 {
 	SavedSeed = SessionSeed;
-	FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("PreSaveGame: Seed for Save: %d"), SavedSeed),
-	                                              ELogLevel::Debug);
+	SavedAlreadySpawned = SessionAlreadySpawned;
+	SavedCollectedResourceNodes = SessionCollectedResourceNodes;
 }
 
-/// Loads our seed value from the savefile
+/// Loads our data from the savefile
+/// TODO Something is wrong with the CollectedResourceNodes...
+/// Perhaps it's better to serialize the actors instead so we don't have to respawn them?
 /// @param SaveVersion 
 /// @param GameVersion 
 void AResourceRouletteSubsystem::PostLoadGame_Implementation(int32 SaveVersion, int32 GameVersion)
@@ -127,4 +135,27 @@ void AResourceRouletteSubsystem::PostLoadGame_Implementation(int32 SaveVersion, 
 		FResourceRouletteUtilityLog::Get().LogMessage(
 			FString::Printf(TEXT("PostLoadGame: Loaded Saved Seed: %d"), SessionSeed), ELogLevel::Debug);
 	}
+	if (SavedAlreadySpawned)
+	{
+		SessionAlreadySpawned = SavedAlreadySpawned;
+		FResourceRouletteUtilityLog::Get().LogMessage(
+			TEXT("PostLoadGame: Resource Roulette Previously Spawned Resources"), ELogLevel::Debug);
+	}
+	if (SavedCollectedResourceNodes.Num() > 0)
+	{
+		SessionCollectedResourceNodes = SavedCollectedResourceNodes;
+		FResourceRouletteUtilityLog::Get().LogMessage(
+			TEXT("PostLoadGame: Original List of Nodes loaded"), ELogLevel::Debug);
+	}
+}
+
+void AResourceRouletteSubsystem::SetSessionAlreadySpawned(const bool InSessionAlreadySpawned)
+{
+	SessionAlreadySpawned = InSessionAlreadySpawned;
+}
+
+void AResourceRouletteSubsystem::SetSessionCollectedResourceNodes(
+	const TArray<FResourceNodeData>& InSessionCollectedResourceNodes)
+{
+	SessionCollectedResourceNodes = InSessionCollectedResourceNodes;
 }

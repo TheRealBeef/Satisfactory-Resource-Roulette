@@ -14,14 +14,21 @@ USTRUCT()
 struct FResourceNodeMeshData
 {
 	GENERATED_BODY()
-	
-	UPROPERTY() UStaticMesh* Mesh = nullptr;
-	UPROPERTY() TArray<UMaterialInterface*> Materials;
-	UPROPERTY() FRotator Rotation = FRotator::ZeroRotator;
-	UPROPERTY() FVector Scale = FVector::OneVector;
-	UPROPERTY() FVector Location = FVector::ZeroVector;
-	UPROPERTY() FString MeshPath;
-	UPROPERTY() TArray<FString> MaterialPaths;
+
+	UPROPERTY()
+	UStaticMesh* Mesh = nullptr;
+	UPROPERTY()
+	TArray<UMaterialInterface*> Materials;
+	UPROPERTY()
+	FRotator Rotation = FRotator::ZeroRotator;
+	UPROPERTY()
+	FVector Scale = FVector::OneVector;
+	UPROPERTY()
+	FVector Location = FVector::ZeroVector;
+	UPROPERTY()
+	FString MeshPath;
+	UPROPERTY()
+	TArray<FString> MaterialPaths;
 };
 
 USTRUCT()
@@ -29,12 +36,18 @@ struct FResourceNodeDecalData
 {
 	GENERATED_BODY()
 
-	UPROPERTY() UMaterial* DecalMaterial = nullptr;
-	UPROPERTY() FRotator Rotation = FRotator::ZeroRotator;
-	UPROPERTY() FVector Scale = FVector(1.0f);
-	UPROPERTY() FVector Location = FVector::ZeroVector;
-	UPROPERTY() float DecalSize = 1.0f;
-	UPROPERTY() FString DecalMaterialPath;
+	UPROPERTY()
+	UMaterial* DecalMaterial = nullptr;
+	UPROPERTY()
+	FRotator Rotation = FRotator::ZeroRotator;
+	UPROPERTY()
+	FVector Scale = FVector(1.0f);
+	UPROPERTY()
+	FVector Location = FVector::ZeroVector;
+	UPROPERTY()
+	float DecalSize = 1.0f;
+	UPROPERTY()
+	FString DecalMaterialPath;
 };
 
 USTRUCT()
@@ -42,9 +55,12 @@ struct FResourceNodeVisualData
 {
 	GENERATED_BODY()
 
-	UPROPERTY() bool bIsUsingDecal = false;
-	UPROPERTY() FResourceNodeMeshData MeshData;
-	UPROPERTY() FResourceNodeDecalData DecalData;
+	UPROPERTY()
+	bool bIsUsingDecal = false;
+	UPROPERTY()
+	FResourceNodeMeshData MeshData;
+	UPROPERTY()
+	FResourceNodeDecalData DecalData;
 };
 
 // Information about the Node (includes the Mesh Data inside)
@@ -53,16 +69,30 @@ struct FResourceNodeData
 {
 	GENERATED_BODY()
 
-	UPROPERTY() FVector Location = FVector::ZeroVector;
-	UPROPERTY() FRotator Rotation = FRotator::ZeroRotator;
-	UPROPERTY() FVector Scale = FVector::OneVector;
-	UPROPERTY() TEnumAsByte<EResourcePurity> Purity;
-	UPROPERTY() TEnumAsByte<EResourceAmount> Amount;
-	UPROPERTY() TSubclassOf<UFGResourceDescriptor> ResourceClass;
-	UPROPERTY() EResourceForm ResourceForm;
-	UPROPERTY() bool bCanPlaceResourceExtractor = false;
-	UPROPERTY() bool bIsOccupied = false;
-	UPROPERTY() FResourceNodeVisualData VisualData;
+	UPROPERTY()
+	UClass* Classname = nullptr;
+	UPROPERTY()
+	FVector Location = FVector::ZeroVector;
+	UPROPERTY()
+	FRotator Rotation = FRotator::ZeroRotator;
+	UPROPERTY()
+	FVector Scale = FVector::OneVector;
+	UPROPERTY()
+	TEnumAsByte<EResourcePurity> Purity;
+	UPROPERTY()
+	TEnumAsByte<EResourceAmount> Amount;
+	UPROPERTY()
+	EResourceNodeType ResourceNodeType;
+	UPROPERTY()
+	TSubclassOf<UFGResourceDescriptor> ResourceClass;
+	UPROPERTY()
+	EResourceForm ResourceForm;
+	UPROPERTY()
+	bool bCanPlaceResourceExtractor = false;
+	UPROPERTY()
+	bool bIsOccupied = false;
+	UPROPERTY()
+	FResourceNodeVisualData VisualData;
 };
 
 
@@ -73,13 +103,15 @@ class RESOURCEROULETTE_API UResourceCollectionManager : public UObject
 
 public:
 	UResourceCollectionManager();
-
+	TArray<FResourceNodeData>& GetCollectedResourceNodes() { return CollectedResourceNodes; }
+	void SetCollectedResourcesNodes(TArray<FResourceNodeData>& InCollectedResourceNodes);
 	void CollectWorldResources(const UWorld* World);
+	// FResourceNodeVisualData CollectMeshData(AFGResourceNode* ResourceNode);
 	void LogCollectedResources() const;
-	void LogCollectedResourcesPeriodic();
-	
+	// void LogCollectedResourcesMegaLog() const;
+
+
 private:
-	
-	FTimerHandle PeriodicLogTimerHandle;
+	UPROPERTY()
 	TArray<FResourceNodeData> CollectedResourceNodes;
 };

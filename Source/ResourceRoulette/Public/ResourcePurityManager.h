@@ -13,12 +13,12 @@ class RESOURCEROULETTE_API UResourcePurityManager : public UObject
 
 public:
 	UResourcePurityManager();
-	
+
 	void SetRemainingPurityCounts(const TMap<FName, TMap<EResourcePurity, int32>>& NewPurityCounts);
-	
+
 	const TMap<FName, TMap<EResourcePurity, int32>>& GetRemainingPurityCounts() const;
 	const TMap<FName, TMap<EResourcePurity, int32>>& GetFoundPurityCounts() const;
-	
+
 	bool IsPurityAvailable(const FName ResourceClass, const EResourcePurity Purity) const;
 	void DecrementAvailablePurities(const FName ResourceClass, const EResourcePurity Purity);
 	void CollectWorldPurities(const UWorld* World);

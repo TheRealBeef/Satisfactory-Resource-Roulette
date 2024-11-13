@@ -21,10 +21,16 @@ public:
 	void InitializeResourceRoulette();
 
 	UFUNCTION(BlueprintCallable)
-	void UpdateResourceRoulette();
+	void UpdateResourceRoulette() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool IsInitialized() const { return bIsInitialized; }
+
+	bool GetSessionAlreadySpawned() const { return SessionAlreadySpawned; }
+	TArray<FResourceNodeData>& GetSessionCollectedResourceNodes() { return SessionCollectedResourceNodes; }
+
+	void SetSessionAlreadySpawned(bool InSessionAlreadySpawned);
+	void SetSessionCollectedResourceNodes(const TArray<FResourceNodeData>& InSessionCollectedResourceNodes);
 
 	virtual bool ShouldSave_Implementation() const override { return true; }
 	virtual void PreSaveGame_Implementation(int32 SaveVersion, int32 GameVersion) override;
@@ -37,13 +43,27 @@ protected:
 	void InitializeWorldSeedManager(UWorld* World);
 
 private:
+	UPROPERTY(SaveGame)
+	int32 SavedSeed;
 	int32 SessionSeed = -1;
 
 	UPROPERTY(SaveGame)
-	int32 SavedSeed;
+	bool SavedAlreadySpawned = false;;
+	bool SessionAlreadySpawned = false;
+
+	UPROPERTY(SaveGame)
+	TArray<FResourceNodeData> SavedCollectedResourceNodes;
+
+	UPROPERTY()
+	TArray<FResourceNodeData> SessionCollectedResourceNodes;
+
 	bool bIsInitialized = false;
-	TWeakObjectPtr<AResourceRouletteSeedManager> SeedManager;
+
+	UPROPERTY()
+	AResourceRouletteSeedManager* SeedManager;
+
 	UPROPERTY()
 	UResourceRouletteManager* ResourceRouletteManager;
+
 	FTimerHandle UpdateTimerHandle;
 };

@@ -10,6 +10,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogResourceRoulette, Log, All);
 
+/// Allows log setting verbosity at runtine
 static TAutoConsoleVariable<int32> CVarLogLevel(
 	TEXT("ResourceRoulette.LogLevel"), 1,
 	TEXT("Sets log verbosity level: 0 = Error, 1 = Warning, 2 = Debug"),
@@ -23,7 +24,7 @@ FResourceRouletteUtilityLog& FResourceRouletteUtilityLog::Get()
 	return Instance;
 }
 
-/// Initializes Logfile
+/// Initializes Logfile stuff
 void FResourceRouletteUtilityLog::InitializeLog()
 {
 	if (bUseCustomLogFile)
@@ -31,7 +32,7 @@ void FResourceRouletteUtilityLog::InitializeLog()
 		FScopeLock Lock(&LogFileMutex);
 		if (!LogFile)
 		{
-			FString LogFilePath = FPaths::Combine(
+			const FString LogFilePath = FPaths::Combine(
 				FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA")),
 				TEXT("FactoryGame/Saved/Logs/ResourceRoulette.log")
 			);
@@ -46,7 +47,7 @@ void FResourceRouletteUtilityLog::InitializeLog()
 }
 
 /// @param bEnableCustomLogFile Whether to use Custom Logfile or UE_Log
-void FResourceRouletteUtilityLog::SetUseCustomLogFile(bool bEnableCustomLogFile)
+void FResourceRouletteUtilityLog::SetUseCustomLogFile(const bool bEnableCustomLogFile)
 {
 	bUseCustomLogFile = bEnableCustomLogFile;
 }
@@ -58,8 +59,8 @@ void FResourceRouletteUtilityLog::RawLogMessage(const FString& Message)
 	FScopeLock Lock(&LogFileMutex);
 	if (LogFile && !LogFile->IsEmpty())
 	{
-		FString LogFilePath = *LogFile;
-		FString FormattedMessage = Message + LINE_TERMINATOR;
+		const FString LogFilePath = *LogFile;
+		const FString FormattedMessage = Message + LINE_TERMINATOR;
 
 		FFileHelper::SaveStringToFile(FormattedMessage, *LogFilePath, FFileHelper::EEncodingOptions::AutoDetect,
 		                              &IFileManager::Get(), FILEWRITE_Append);
@@ -100,7 +101,7 @@ void FResourceRouletteUtilityLog::LogMessage(const FString& Message, ELogLevel L
 
 /// Blueprint callable way to override using custom logfile or not
 /// @param bEnableCustomLogFile 
-void UResourceRouletteUtility::UseCustomLogFile(bool bEnableCustomLogFile)
+void UResourceRouletteUtility::UseCustomLogFile(const bool bEnableCustomLogFile)
 {
 	FResourceRouletteUtilityLog::Get().SetUseCustomLogFile(bEnableCustomLogFile);
 }
@@ -140,7 +141,7 @@ bool UResourceRouletteUtility::IsValidResourceClass(const FName& ResourceClassNa
 	return !ResourceClassName.IsNone() && ValidResourceClasses.Contains(ResourceClassName);
 }
 
-/// 
+/// Checks to see if it's valid resource class and infinite, which should filter out deposits
 /// @param ResourceNode 
 /// @return 
 bool UResourceRouletteUtility::IsValidInfiniteResourceNode(const AFGResourceNode* ResourceNode)
@@ -150,18 +151,18 @@ bool UResourceRouletteUtility::IsValidInfiniteResourceNode(const AFGResourceNode
 		return false;
 	}
 
-	FName ResourceClassName = ResourceNode && ResourceNode->GetResourceClass()
-		                          ? ResourceNode->GetResourceClass()->GetFName()
-		                          : NAME_None;
+	const FName ResourceClassName = ResourceNode && ResourceNode->GetResourceClass()
+		                                ? ResourceNode->GetResourceClass()->GetFName()
+		                                : NAME_None;
 
 	return IsValidResourceClass(ResourceClassName);
 }
 
 const TArray<FName> UResourceRouletteUtility::ValidResourceClasses = {
-	"Desc_NitrogenGas_C",
-	"Desc_Geyser_C",
-	"Desc_LiquidOil_C",
-	"Desc_Water_C",
+	// "Desc_NitrogenGas_C", // This is a fracking node, it's on TODO
+	// "Desc_Geyser_C", // We'll come back to geysers later TODO
+	// "Desc_LiquidOil_C", // Until I can separate fracking nodes, it's on TODO too :(
+	// "Desc_Water_C", // This is a fracking node, it's on TODO
 	"Desc_SAM_C",
 	"Desc_Stone_C",
 	"Desc_OreIron_C",
@@ -175,7 +176,7 @@ const TArray<FName> UResourceRouletteUtility::ValidResourceClasses = {
 	"Desc_FF_Dirt_Fertilized_C",
 	"Desc_FF_Dirt_C",
 	"Desc_FF_Dirt_Wet_C",
-	"Desc_RP_Deanium_C",
+	// "Desc_RP_Deanium_C", // This is a fracking node, it's on TODO
 	// "Desc_RP_WaterDamNode_C", // We shouldn't randomize this
 	// "Desc_WaterTurbineNode_C", // We shouldn't randomize this
 	"Desc_RP_Thorium_C"
@@ -190,7 +191,7 @@ void UResourceRouletteUtility::LogAllResourceNodes(const UWorld* World)
 
 	for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 	{
-		AFGResourceNode* ResourceNode = *It;
+		const AFGResourceNode* ResourceNode = *It;
 
 		FString NodeName = ResourceNode->GetName();
 		FString ResourceClass = ResourceNode->GetResourceClass()

@@ -26,7 +26,7 @@ enum class EBlueprintLogLevel : uint8
 };
 
 
-const FName CustomResourceNodeTag = "CustomResourceNode";
+const FName ResourceRouletteTag = "ResourceRouletteObject";
 
 class FResourceRouletteUtilityLog
 {

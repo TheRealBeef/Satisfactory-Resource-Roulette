@@ -2,21 +2,33 @@
 #include "Resources/FGResourceNode.h"
 #include "ResourceRouletteUtility.h"
 #include "EngineUtils.h"
+#include "ResourceRouletteSubsystem.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "Resources/FGResourceDescriptor.h"
 #include "Components/DecalComponent.h"
-
+#include "Kismet/GameplayStatics.h"
 
 UResourceCollectionManager::UResourceCollectionManager()
 {
 	CollectedResourceNodes.Empty();
 }
 
+
+/// /// Sets the array of collected resource nodes externally
+/// @param InCollectedResourceNodes - to save
+void UResourceCollectionManager::SetCollectedResourcesNodes(TArray<FResourceNodeData>& InCollectedResourceNodes)
+{
+	CollectedResourceNodes = InCollectedResourceNodes;
+}
+
+/// Collects all the resources in the world and their basic information
+/// @param World World Context
 void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 {
-	if (!World) return;
-	
+	CollectedResourceNodes.Empty();
+	// FResourceRouletteUtilityLog::Get().LogMessage(TEXT("CollectWorldResources called"), ELogLevel::Debug);
+
 	for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 	{
 		AFGResourceNode* ResourceNode = *It;
@@ -25,152 +37,138 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 		{
 			continue;
 		}
+
+		// Collect node infos
+		FResourceNodeData NodeData;
+		NodeData.Classname = ResourceNode->GetClass();
+		NodeData.Location = ResourceNode->GetActorLocation();
+		NodeData.Rotation = ResourceNode->GetActorRotation();
+		NodeData.Scale = ResourceNode->GetActorScale3D();
+		NodeData.Purity = ResourceNode->GetResoucePurity();
+		NodeData.Amount = ResourceNode->GetResourceAmount();
+		NodeData.ResourceClass = ResourceNode->GetResourceClass();
+		NodeData.ResourceNodeType = ResourceNode->GetResourceNodeType();
+		NodeData.ResourceForm = ResourceNode->GetResourceForm();
+		NodeData.bCanPlaceResourceExtractor = ResourceNode->CanPlaceResourceExtractor();
+		NodeData.bIsOccupied = ResourceNode->IsOccupied();
+
+		// Add node data to collection
+		CollectedResourceNodes.Add(NodeData);
+
+		// Destroy the mesh
+		TArray<UStaticMeshComponent*> MeshComponents;
+		ResourceNode->GetComponents(MeshComponents);
+		for (UStaticMeshComponent* MeshComponent : MeshComponents)
+		{
+			if (MeshComponent)
+			{
+				MeshComponent->SetVisibility(false);
+				MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				MeshComponent->DestroyComponent();
+			}
+		}
+		// and then the actor
+		ResourceNode->Destroy();
+	}
+
+	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
+	{
+		ResourceRouletteSubsystem->SetSessionCollectedResourceNodes(CollectedResourceNodes);
+	}
+
+	// Log and clear collected resources
+	// LogCollectedResources();
+}
+
+/// Logs all the collected resources
+/// This method is for the more general method, vs the one that incldues mesh data
+void UResourceCollectionManager::LogCollectedResources() const
+{
+	for (const FResourceNodeData& NodeData : CollectedResourceNodes)
+	{
+		// Get the resource class name or default to "UnknownClass" if null
+		FString ResourceClassName = NodeData.ResourceClass ? NodeData.ResourceClass->GetName() : TEXT("UnknownClass");
+
+		// Format the general information string
+		FString GeneralInfo = FString::Printf(
+			TEXT(
+				"%s | ResourceForm: %s | Location: %s | Rotation: %s | Scale: %s | Purity: %d | Amount: %d | CanPlaceExtractor: %s | IsOccupied: %s"),
+			*ResourceClassName,
+			*StaticEnum<EResourceForm>()->GetNameStringByValue(static_cast<int64>(NodeData.ResourceForm)),
+			*NodeData.Location.ToString(),
+			*NodeData.Rotation.ToString(),
+			*NodeData.Scale.ToString(),
+			static_cast<int32>(NodeData.Purity),
+			static_cast<int32>(NodeData.Amount),
+			NodeData.bCanPlaceResourceExtractor ? TEXT("Yes") : TEXT("No"),
+			NodeData.bIsOccupied ? TEXT("Yes") : TEXT("No")
+		);
+
+		// Log the general information for this node
+		FResourceRouletteUtilityLog::Get().LogMessage(GeneralInfo, ELogLevel::Debug);
 	}
 }
 
-	// switch (ResourceNode->GetResourceForm())
-	// {
-	// case EResourceForm::RF_SOLID:
-	// 	CollectSolidResources(ResourceNode);
-	// 	break;
-	// case EResourceForm::RF_LIQUID:
-	// 	CollectLiquidResources(ResourceNode);
-	// 	break;
-	// case EResourceForm::RF_HEAT:
-	// 	CollectHeatResources(ResourceNode);
-	// 	break;
-	// case EResourceForm::RF_FRACKING:
-	// 	CollectFrackingResources(ResourceNode);
-	// 	break;
-	// default:
-	// 	break;
-	// }
+//////////////////////////////////////////////////////////////////////////////////////
+/// These methods are primarily for testing / debugging to grab more detailed info
+/// Not needed for actual shipping of the mod
+/// //////////////////////////////////////////////////////////////////////////////////
 
-	
-	
-// void UResourceCollectionManager::DestroyMatchingMeshes(UWorld* World)
+// /// Collects mesh data resource node
+// /// @param ResourceNode resource node we're checking
+// /// @return FResourceNodeVisualData struct containing mesh data
+// FResourceNodeVisualData UResourceCollectionManager::CollectMeshData(AFGResourceNode* ResourceNode)
 // {
-// 	for (TObjectIterator<UStaticMeshComponent> It; It; ++It)
-// 	{
-// 		UStaticMeshComponent* MeshComponent = *It;
-// 		if (MeshComponent && MeshComponent->GetWorld() == World)
-// 		{
-// 			UStaticMesh* StaticMesh = MeshComponent->GetStaticMesh();
-// 			if (StaticMesh && ResourceAssets.Contains(StaticMesh->GetPathName()))
-// 			{
-// 				MeshComponent->SetActive(false);
-// 				MeshComponent->SetVisibility(false);
-// 				MeshComponent->DestroyComponent();
-// 			}
-// 		}
-// 	}
-// }
-
-// /// Collects all the resources in the world and their information
-// /// @param World World Context
-// void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
-// {
-// 	CollectedResourceNodes.Empty();
-// 	FResourceRouletteUtilityLog::Get().LogMessage(TEXT("CollectWorldResources called"), ELogLevel::Debug);
-// 	for (TActorIterator<AFGResourceNode> It(World); It; ++It)
-// 	{
-// 		AFGResourceNode* ResourceNode = *It;
+// 	FResourceNodeVisualData VisualData;
+// 	VisualData.bIsUsingDecal = false;
 //
-// 		if (!UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
-// 		{
-// 			continue;
-// 		}
+// 	TArray<UStaticMeshComponent*> MeshComponents;
+// 	ResourceNode->GetComponents(MeshComponents);
 //
-// 		// Collect node infos
-// 		FResourceNodeData NodeData;
-// 		NodeData.Location = ResourceNode->GetActorLocation();
-// 		NodeData.Rotation = ResourceNode->GetActorRotation();
-// 		NodeData.Scale = ResourceNode->GetActorScale3D();
-// 		NodeData.Purity = ResourceNode->GetResoucePurity();
-// 		NodeData.Amount = ResourceNode->GetResourceAmount();
-// 		NodeData.ResourceClass = ResourceNode->GetResourceClass();
-// 		NodeData.ResourceForm = ResourceNode->GetResourceForm();
-// 		NodeData.bCanPlaceResourceExtractor = ResourceNode->CanPlaceResourceExtractor();
-// 		NodeData.bIsOccupied = ResourceNode->IsOccupied();
-// 		NodeData.VisualData.bIsUsingDecal = false;
-// 		
-// 		//Collect Mesh infos
-// 		UStaticMesh* ResourceMesh = nullptr;
-// 		bool bHasMeshActor = false;
-// 		AActor* MeshActor = ResourceNode->GetMeshActor();
-// 		if (MeshActor)
+// 	for (UStaticMeshComponent* MeshComponent : MeshComponents)
+// 	{
+// 		if (UStaticMesh* ResourceMesh = MeshComponent->GetStaticMesh())
 // 		{
-// 			UStaticMeshComponent* MeshComponent = MeshActor->FindComponentByClass<UStaticMeshComponent>();
-// 			if (MeshComponent && MeshComponent->GetStaticMesh())
-// 			{
-// 				ResourceMesh = MeshComponent->GetStaticMesh();
-// 				NodeData.VisualData.MeshData.Mesh = ResourceMesh;
-// 				NodeData.VisualData.MeshData.MeshPath = ResourceMesh->GetPathName();
-// 				NodeData.VisualData.MeshData.Rotation = MeshComponent->GetComponentRotation();
-// 				NodeData.VisualData.MeshData.Scale = MeshComponent->GetComponentScale();
-// 				NodeData.VisualData.MeshData.Location = MeshComponent->GetComponentLocation();
-// 				bHasMeshActor = true;
-// 			}
-// 		}
-// 		
-// 		if (!bHasMeshActor && NodeData.ResourceClass)
-// 		{
-// 			UFGResourceDescriptor* DescriptorCDO = Cast<UFGResourceDescriptor>(
-// 				NodeData.ResourceClass->GetDefaultObject());
-// 			if (DescriptorCDO && DescriptorCDO->mDepositMesh)
-// 			{
-// 				ResourceMesh = DescriptorCDO->mDepositMesh;
-// 				NodeData.VisualData.MeshData.Mesh = ResourceMesh;
-// 				NodeData.VisualData.MeshData.MeshPath = ResourceMesh->GetPathName();
-// 				NodeData.VisualData.MeshData.Rotation = FRotator::ZeroRotator;
-// 				NodeData.VisualData.MeshData.Scale = FVector(1.0f, 1.0f, 1.0f);
-// 				NodeData.VisualData.MeshData.Location = FVector::ZeroVector;
-// 			}
-// 		}
-// 		//Collect Material infos
-// 		if (ResourceMesh)
-// 		{
-// 			int32 NumMaterials = ResourceMesh->GetStaticMaterials().Num();
+// 			VisualData.MeshData.Mesh = ResourceMesh;
+// 			VisualData.MeshData.MeshPath = ResourceMesh->GetPathName();
+// 			VisualData.MeshData.Location = MeshComponent->GetComponentLocation();
+// 			VisualData.MeshData.Rotation = MeshComponent->GetComponentRotation();
+// 			VisualData.MeshData.Scale = MeshComponent->GetComponentScale();
+//
+// 			int32 NumMaterials = MeshComponent->GetNumMaterials();
 // 			for (int32 i = 0; i < NumMaterials; i++)
 // 			{
-// 				UMaterialInterface* Material = ResourceMesh->GetMaterial(i);
-// 				if (Material)
+// 				if (UMaterialInterface* Material = MeshComponent->GetMaterial(i))
 // 				{
-// 					NodeData.VisualData.MeshData.Materials.Add(Material);
-// 					NodeData.VisualData.MeshData.MaterialPaths.Add(Material->GetPathName());
+// 					VisualData.MeshData.Materials.Add(Material);
+// 					VisualData.MeshData.MaterialPaths.Add(Material->GetPathName());
 // 				}
 // 			}
 // 		}
-// 		else if (UDecalComponent* DecalComponent = ResourceNode->FindComponentByClass<UDecalComponent>())
-// 		{
-// 			NodeData.VisualData.bIsUsingDecal = true;
-// 			NodeData.VisualData.DecalData.DecalMaterial = UFGResourceDescriptor::GetDecalMaterial(
-// 				NodeData.ResourceClass);
-// 			NodeData.VisualData.DecalData.DecalSize = UFGResourceDescriptor::GetDecalSize(NodeData.ResourceClass);
-// 			NodeData.VisualData.DecalData.Rotation = DecalComponent->GetComponentRotation();
-// 			NodeData.VisualData.DecalData.Scale = FVector(NodeData.VisualData.DecalData.DecalSize);
-// 			NodeData.VisualData.DecalData.Location = DecalComponent->GetComponentLocation();
-// 			NodeData.VisualData.DecalData.DecalMaterialPath = NodeData.VisualData.DecalData.DecalMaterial
-// 				                                                  ? NodeData.VisualData.DecalData.DecalMaterial->
-// 				                                                             GetPathName()
-// 				                                                  : TEXT("No Decal");
-// 			DecalComponent->DestroyComponent();
-// 		}
-// 		else
-// 		{
-// 			// If we didn't get either a material or a decal then we're missing something so try again...
-// 			continue;
-// 		}
-// 		CollectedResourceNodes.Add(NodeData);
-// 		ResourceNode->Destroy();
 // 	}
-// 	// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Total Collected Resource Nodes: %d"), CollectedResourceNodes.Num()), ELogLevel::Debug);
-// 	LogCollectedResources();
-// 	CollectedResourceNodes.Empty();
+//
+// 	if (VisualData.MeshData.Mesh == nullptr)
+// 	{
+// 		if (UDecalComponent* DecalComponent = ResourceNode->FindComponentByClass<UDecalComponent>())
+// 		{
+// 			VisualData.bIsUsingDecal = true;
+// 			VisualData.DecalData.DecalMaterial = UFGResourceDescriptor::GetDecalMaterial(ResourceNode->GetResourceClass());
+// 			VisualData.DecalData.DecalSize = UFGResourceDescriptor::GetDecalSize(ResourceNode->GetResourceClass());
+// 			VisualData.DecalData.Rotation = DecalComponent->GetComponentRotation();
+// 			VisualData.DecalData.Scale = FVector(VisualData.DecalData.DecalSize);
+// 			VisualData.DecalData.Location = DecalComponent->GetComponentLocation();
+// 			VisualData.DecalData.DecalMaterialPath = VisualData.DecalData.DecalMaterial
+// 				? VisualData.DecalData.DecalMaterial->GetPathName()
+// 				: TEXT("No Decal");
+// 		}
+// 	}
+// 	return VisualData;
 // }
 
+
 // /// Logs all the collected resources to file so we can do some data analysis
-// void UResourceCollectionManager::LogCollectedResources() const
+// /// Not used for gameplay so much as collecting information about resources
+// void UResourceCollectionManager::LogCollectedResourcesMegaLog() const
 // {
 //     for (const FResourceNodeData& NodeData : CollectedResourceNodes)
 //     {
