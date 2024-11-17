@@ -27,10 +27,10 @@ public:
 	bool IsInitialized() const { return bIsInitialized; }
 
 	bool GetSessionAlreadySpawned() const { return SessionAlreadySpawned; }
-	TArray<FResourceNodeData>& GetSessionCollectedResourceNodes() { return SessionCollectedResourceNodes; }
+	TArray<FResourceNodeData>& GetSessionRandomizedResourceNodes() { return SessionRandomizedResourceNodes; }
 
 	void SetSessionAlreadySpawned(bool InSessionAlreadySpawned);
-	void SetSessionCollectedResourceNodes(const TArray<FResourceNodeData>& InSessionCollectedResourceNodes);
+	void SetSessionRandomizedResourceNodes(const TArray<FResourceNodeData>& InSessionRandomizedResourceNodes);
 
 	virtual bool ShouldSave_Implementation() const override { return true; }
 	virtual void PreSaveGame_Implementation(int32 SaveVersion, int32 GameVersion) override;
@@ -52,10 +52,10 @@ private:
 	bool SessionAlreadySpawned = false;
 
 	UPROPERTY(SaveGame)
-	TArray<FResourceNodeData> SavedCollectedResourceNodes;
+	TArray<FResourceNodeData> SavedRandomizedResourceNodes;
 
 	UPROPERTY()
-	TArray<FResourceNodeData> SessionCollectedResourceNodes;
+	TArray<FResourceNodeData> SessionRandomizedResourceNodes;
 
 	bool bIsInitialized = false;
 

@@ -12,7 +12,7 @@ public class ResourceRoulette : ModuleRules
         bLegacyParentIncludePaths = false;
         CppStandard = CppStandardVersion.Cpp20;
         bUseUnity = false;
-        OptimizeCode = CodeOptimization.Never;
+        // OptimizeCode = CodeOptimization.Never;
         
 		PublicDependencyModuleNames.AddRange(new string[] {
             "Core", "CoreUObject", "Engine",

@@ -17,7 +17,7 @@ UResourceCollectionManager::UResourceCollectionManager()
 
 /// /// Sets the array of collected resource nodes externally
 /// @param InCollectedResourceNodes - to save
-void UResourceCollectionManager::SetCollectedResourcesNodes(TArray<FResourceNodeData>& InCollectedResourceNodes)
+void UResourceCollectionManager::SetCollectedResourcesNodes(const TArray<FResourceNodeData>& InCollectedResourceNodes)
 {
 	CollectedResourceNodes = InCollectedResourceNodes;
 }
@@ -40,18 +40,20 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 
 		// Collect node infos
 		FResourceNodeData NodeData;
-		NodeData.Classname = ResourceNode->GetClass();
+		NodeData.Classname = ResourceNode->GetClass()->GetName();
 		NodeData.Location = ResourceNode->GetActorLocation();
 		NodeData.Rotation = ResourceNode->GetActorRotation();
 		NodeData.Scale = ResourceNode->GetActorScale3D();
 		NodeData.Purity = ResourceNode->GetResoucePurity();
 		NodeData.Amount = ResourceNode->GetResourceAmount();
-		NodeData.ResourceClass = ResourceNode->GetResourceClass();
+		NodeData.ResourceClass = ResourceNode->GetResourceClass()->GetFName();
 		NodeData.ResourceNodeType = ResourceNode->GetResourceNodeType();
 		NodeData.ResourceForm = ResourceNode->GetResourceForm();
 		NodeData.bCanPlaceResourceExtractor = ResourceNode->CanPlaceResourceExtractor();
 		NodeData.bIsOccupied = ResourceNode->IsOccupied();
-
+		NodeData.IsRayCasted = false;
+		NodeData.NodeGUID = FGuid::NewGuid();
+		
 		// Add node data to collection
 		CollectedResourceNodes.Add(NodeData);
 
@@ -71,11 +73,6 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 		ResourceNode->Destroy();
 	}
 
-	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
-	{
-		ResourceRouletteSubsystem->SetSessionCollectedResourceNodes(CollectedResourceNodes);
-	}
-
 	// Log and clear collected resources
 	// LogCollectedResources();
 }
@@ -87,7 +84,7 @@ void UResourceCollectionManager::LogCollectedResources() const
 	for (const FResourceNodeData& NodeData : CollectedResourceNodes)
 	{
 		// Get the resource class name or default to "UnknownClass" if null
-		FString ResourceClassName = NodeData.ResourceClass ? NodeData.ResourceClass->GetName() : TEXT("UnknownClass");
+		FString ResourceClassName = NodeData.ResourceClass != NAME_None ? NodeData.ResourceClass.ToString() : "UnknownClass";;
 
 		// Format the general information string
 		FString GeneralInfo = FString::Printf(
@@ -108,6 +105,7 @@ void UResourceCollectionManager::LogCollectedResources() const
 		FResourceRouletteUtilityLog::Get().LogMessage(GeneralInfo, ELogLevel::Debug);
 	}
 }
+
 
 //////////////////////////////////////////////////////////////////////////////////////
 /// These methods are primarily for testing / debugging to grab more detailed info

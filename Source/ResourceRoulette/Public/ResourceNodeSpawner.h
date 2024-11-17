@@ -16,15 +16,16 @@ class RESOURCEROULETTE_API UResourceNodeSpawner : public UObject
 public:
 	UResourceNodeSpawner();
 
-	void SpawnWorldResources(UWorld* World, UResourceNodeRandomizer* InNodeRandomizer);
+	void SpawnWorldResources(UWorld* World, UResourceNodeRandomizer* InNodeRandomizer, bool IsFromSaved);
 
+	TMap<FGuid, AFGResourceNode*>& GetSpawnedResourceNodes() {return SpawnedResourceNodes;}
+	
 private:
-	static bool SpawnCustomResourceNodeSolid(UWorld* World, const FResourceNodeData& NodeData,
+	bool SpawnResourceNodeSolid(UWorld* World, FResourceNodeData& NodeData,
 	                                         const UResourceRouletteAssets* ResourceAssets);
 
-	UPROPERTY()
-	TMap<AFGResourceNode*, UStaticMeshComponent*> CustomResourceNodeMap;
-
-	UPROPERTY()
-	UResourceNodeRandomizer* NodeRandomizer;
+	UPROPERTY()	TMap<FGuid, AFGResourceNode*> SpawnedResourceNodes;
+	UPROPERTY()	UResourceNodeRandomizer* NodeRandomizer;
+	
+	TArray<FResourceNodeData> ProcessedNodes;
 };

@@ -7,7 +7,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 			"/Game/FactoryGame/Resource/RawResources/Nodes/ResourceNode_OreIron_01.ResourceNode_OreIron_01",
 			{"/Game/FactoryGame/Resource/RawResources/OreIron/Material/ResourceNode_Iron_Inst.ResourceNode_Iron_Inst"},
 			FVector(-400.0f, 0.0f, -40.0f),
-			FVector(2.0f, 2.0f, 2.0f)
+			FVector(2.0f, 2.0f, 2.5f)
 		}
 	},
 	{
@@ -17,7 +17,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 				"/Game/FactoryGame/Resource/RawResources/OreCopper/Material/ResourceNode_Copper_Inst.ResourceNode_Copper_Inst"
 			},
 			FVector(-400.0f, 0.0f, -40.0f),
-			FVector(2.0f, 2.0f, 2.0f)
+			FVector(2.0f, 2.0f, 2.5f)
 		}
 	},
 	{
@@ -25,7 +25,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 			"/Game/FactoryGame/Resource/RawResources/Nodes/ResourceNode_OreGold_01.ResourceNode_OreGold_01",
 			{"/Game/FactoryGame/Resource/RawResources/OreGold/Material/ResourceNode_Gold_Inst.ResourceNode_Gold_Inst"},
 			FVector(-400.0f, 0.0f, -40.0f),
-			FVector(2.0f, 2.0f, 2.0f))
+			FVector(2.0f, 2.0f, 2.5f))
 	},
 	{
 		"Desc_OreBauxite_C", FResourceRouletteAssetSolid(
@@ -35,7 +35,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 				"/Game/FactoryGame/Resource/RawResources/OreBauxite/Material/MI_ResourceNode_Middle_OreBauxite.MI_ResourceNode_Middle_OreBauxite"
 			},
 			FVector(-400.0f, 0.0f, -40.0f),
-			FVector(2.0f, 2.0f, 2.0f))
+			FVector(2.0f, 2.0f, 2.5f))
 	},
 	{
 		"Desc_OreUranium_C", FResourceRouletteAssetSolid(
@@ -45,7 +45,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 				"/Game/FactoryGame/Resource/RawResources/OreUranium/Material/MI_ResourceNode_Middle_OreUranium.MI_ResourceNode_Middle_OreUranium"
 			},
 			FVector(-400.0f, 0.0f, -40.0f),
-			FVector(2.0f, 2.0f, 2.0f))
+			FVector(2.0f, 2.0f, 2.5f))
 	},
 	{
 		"Desc_RawQuartz_C", FResourceRouletteAssetSolid(
@@ -54,21 +54,21 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 				"/Game/FactoryGame/Resource/RawResources/OreQuartz/Material/ResourceNode_Quartz_Inst.ResourceNode_Quartz_Inst"
 			},
 			FVector(-400.0f, 0.0f, -40.0f),
-			FVector(2.0f, 2.0f, 2.0f))
+			FVector(2.0f, 2.0f, 2.5f))
 	},
 	{
 		"Desc_Sulfur_C", FResourceRouletteAssetSolid(
 			"/Game/FactoryGame/Resource/RawResources/Nodes/SulfurResource_01.SulfurResource_01",
 			{"/Game/FactoryGame/Resource/RawResources/Sulfur/Material/Resource_Sulfur_Inst.Resource_Sulfur_Inst"},
 			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 1.0f))
+			FVector(1.0f, 1.0f, 1.5f))
 	},
 	{
 		"Desc_Coal_C", FResourceRouletteAssetSolid(
 			"/Game/FactoryGame/Resource/RawResources/Nodes/CoalResource_01.CoalResource_01",
 			{"/Game/FactoryGame/Resource/RawResources/Coal/Material/CoalResource_01_Inst.CoalResource_01_Inst"},
 			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 1.0f))
+			FVector(1.0f, 1.0f, 1.5f))
 	},
 	{
 		"Desc_Stone_C", FResourceRouletteAssetSolid(
@@ -77,14 +77,14 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 				"/Game/FactoryGame/Resource/RawResources/Stone/Material/MI_ResourceNode_Stone_Blocks.MI_ResourceNode_Stone_Blocks"
 			},
 			FVector(0.0f, 0.0f, 0.0f),
-			FVector(2.4f, 2.4f, 2.4f))
+			FVector(2.4f, 2.4f, 2.8f))
 	},
 	{
 		"Desc_SAM_C", FResourceRouletteAssetSolid(
 			"/Game/FactoryGame/Resource/RawResources/SAM/Mesh/SM_SAM_Node_01.SM_SAM_Node_01",
 			{"/Game/FactoryGame/Resource/RawResources/SAM/Material/MI_SAM_Node_01.MI_SAM_Node_01"},
 			FVector(0.0f, 0.0f, 50.0f),
-			FVector(1.3333f, 1.3333f, 1.3333f))
+			FVector(1.3333f, 1.3333f, 1.8f))
 	},
 	{
 		"Desc_RP_Thorium_C", FResourceRouletteAssetSolid{
@@ -94,7 +94,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 				"/RefinedPower/World/ResourceNodes/Thorium/Materials/M_Thorium_Middle.M_Thorium_Middle"
 			},
 			FVector(0.0f, 0.0f, 0.0f),
-			FVector(2.0f, 2.0f, 2.0f)
+			FVector(2.0f, 2.0f, 2.5f)
 		}
 	},
 	{
@@ -102,7 +102,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 			"/FicsitFarming/World/ResourceNodes/Dirt/Mesh/SM_DirtNode.SM_DirtNode",
 			{"/FicsitFarming/World/ResourceNodes/Dirt/Material/MI_Dirt_Wet.MI_Dirt_Wet"},
 			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 0.5f)
+			FVector(1.0f, 1.0f, 0.75f)
 		}
 	},
 	{
@@ -110,7 +110,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 			"/FicsitFarming/World/ResourceNodes/Dirt/Mesh/SM_DirtNode.SM_DirtNode",
 			{"/FicsitFarming/World/ResourceNodes/Dirt/Material/MI_Dirt_Normal.MI_Dirt_Normal"},
 			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 0.5f)
+			FVector(1.0f, 1.0f, 0.75f)
 		}
 	},
 	{
@@ -118,7 +118,7 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 			"/FicsitFarming/World/ResourceNodes/Dirt/Mesh/SM_DirtNode.SM_DirtNode",
 			{"/FicsitFarming/World/ResourceNodes/Dirt/Material/MI_Dirt_Fert.MI_Dirt_Fert"},
 			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 0.5f)
+			FVector(1.0f, 1.0f, 0.75f)
 		}
 	}
 

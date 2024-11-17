@@ -8,6 +8,10 @@
 #include "Misc/OutputDeviceFile.h"
 #include "ResourceRouletteUtility.generated.h"
 
+
+// To avoid circles in dependencies do forward delcaration
+struct FResourceNodeData;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogSatisfactoryModLoader, Log, All);
 
 enum class ELogLevel
@@ -69,8 +73,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Resource Roulette")
 	static void InitializeLoggingModule();
-
+		
 	static bool IsValidResourceClass(const FName& ResourceClassName);
 	static bool IsValidInfiniteResourceNode(const AFGResourceNode* ResourceNode);
 	static void LogAllResourceNodes(const UWorld* World);
+
+	static FVector CalculateBestFitPlaneNormal(const TArray<FVector>& Points);
+	static bool CalculateLocationAndRotationForNode(FResourceNodeData& NodeData, const UWorld* World, const AActor* ResourceNodeActor);
+
+	static void AssociateExtractorsWithNodes(UWorld* World, const TArray<FResourceNodeData>& ProcessedNodes, const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes);
 };

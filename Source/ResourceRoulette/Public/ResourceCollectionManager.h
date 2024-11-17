@@ -9,90 +9,65 @@
 #include "ResourceRouletteUtility.h"
 #include "ResourceCollectionManager.generated.h"
 
-// Information about the Node's mesh
-USTRUCT()
-struct FResourceNodeMeshData
-{
-	GENERATED_BODY()
+// // Information about the Node's mesh
+// USTRUCT()
+// struct FResourceNodeMeshData
+// {
+// 	GENERATED_BODY()
+//
+// 	UPROPERTY()	UStaticMesh* Mesh = nullptr;
+// 	UPROPERTY()	TArray<UMaterialInterface*> Materials;
+// 	UPROPERTY()	FRotator Rotation = FRotator::ZeroRotator;
+// 	UPROPERTY()	FVector Scale = FVector::OneVector;
+// 	UPROPERTY()	FVector Location = FVector::ZeroVector;
+// 	UPROPERTY()	FString MeshPath;
+// 	UPROPERTY()	TArray<FString> MaterialPaths;
+// };
+//
+// USTRUCT()
+// struct FResourceNodeDecalData
+// {
+// 	GENERATED_BODY()
+//
+// 	UPROPERTY()	UMaterial* DecalMaterial = nullptr;
+// 	UPROPERTY()	FRotator Rotation = FRotator::ZeroRotator;
+// 	UPROPERTY()	FVector Scale = FVector(1.0f);
+// 	UPROPERTY()	FVector Location = FVector::ZeroVector;
+// 	UPROPERTY()	float DecalSize = 1.0f;
+// 	UPROPERTY()	FString DecalMaterialPath;
+// };
+//
+// USTRUCT()
+// struct FResourceNodeVisualData
+// {
+// 	GENERATED_BODY()
+//
+// 	UPROPERTY()	bool bIsUsingDecal = false;
+// 	UPROPERTY()	FResourceNodeMeshData MeshData;
+// 	UPROPERTY()	FResourceNodeDecalData DecalData;
+// };
 
-	UPROPERTY()
-	UStaticMesh* Mesh = nullptr;
-	UPROPERTY()
-	TArray<UMaterialInterface*> Materials;
-	UPROPERTY()
-	FRotator Rotation = FRotator::ZeroRotator;
-	UPROPERTY()
-	FVector Scale = FVector::OneVector;
-	UPROPERTY()
-	FVector Location = FVector::ZeroVector;
-	UPROPERTY()
-	FString MeshPath;
-	UPROPERTY()
-	TArray<FString> MaterialPaths;
-};
-
-USTRUCT()
-struct FResourceNodeDecalData
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	UMaterial* DecalMaterial = nullptr;
-	UPROPERTY()
-	FRotator Rotation = FRotator::ZeroRotator;
-	UPROPERTY()
-	FVector Scale = FVector(1.0f);
-	UPROPERTY()
-	FVector Location = FVector::ZeroVector;
-	UPROPERTY()
-	float DecalSize = 1.0f;
-	UPROPERTY()
-	FString DecalMaterialPath;
-};
-
-USTRUCT()
-struct FResourceNodeVisualData
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	bool bIsUsingDecal = false;
-	UPROPERTY()
-	FResourceNodeMeshData MeshData;
-	UPROPERTY()
-	FResourceNodeDecalData DecalData;
-};
-
-// Information about the Node (includes the Mesh Data inside)
+// Information about the Node (includes the Mesh Data inside if uncommented)
 USTRUCT()
 struct FResourceNodeData
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	UClass* Classname = nullptr;
-	UPROPERTY()
-	FVector Location = FVector::ZeroVector;
-	UPROPERTY()
-	FRotator Rotation = FRotator::ZeroRotator;
-	UPROPERTY()
-	FVector Scale = FVector::OneVector;
-	UPROPERTY()
-	TEnumAsByte<EResourcePurity> Purity;
-	UPROPERTY()
-	TEnumAsByte<EResourceAmount> Amount;
-	UPROPERTY()
-	EResourceNodeType ResourceNodeType;
-	UPROPERTY()
-	TSubclassOf<UFGResourceDescriptor> ResourceClass;
-	UPROPERTY()
-	EResourceForm ResourceForm;
-	UPROPERTY()
-	bool bCanPlaceResourceExtractor = false;
-	UPROPERTY()
-	bool bIsOccupied = false;
-	UPROPERTY()
-	FResourceNodeVisualData VisualData;
+	UPROPERTY(SaveGame)	FString Classname;
+	UPROPERTY(SaveGame)	FVector Location = FVector::ZeroVector;
+	UPROPERTY(SaveGame)	FRotator Rotation = FRotator::ZeroRotator;
+	UPROPERTY(SaveGame) FVector Offset = FVector::ZeroVector;
+	UPROPERTY(SaveGame)	FVector Scale = FVector::OneVector;
+	UPROPERTY(SaveGame)	TEnumAsByte<EResourcePurity> Purity;
+	UPROPERTY(SaveGame)	TEnumAsByte<EResourceAmount> Amount;
+	UPROPERTY(SaveGame)	EResourceNodeType ResourceNodeType;
+	UPROPERTY(SaveGame)	FName ResourceClass;
+	UPROPERTY(SaveGame)	EResourceForm ResourceForm;
+	UPROPERTY(SaveGame)	bool bCanPlaceResourceExtractor = false;
+	UPROPERTY(SaveGame)	bool bIsOccupied = false;
+	UPROPERTY(SaveGame)	bool IsRayCasted = false;
+	UPROPERTY(SaveGame)	FGuid NodeGUID;
+	// UPROPERTY() FResourceNodeVisualData VisualData;
 };
 
 
@@ -104,7 +79,7 @@ class RESOURCEROULETTE_API UResourceCollectionManager : public UObject
 public:
 	UResourceCollectionManager();
 	TArray<FResourceNodeData>& GetCollectedResourceNodes() { return CollectedResourceNodes; }
-	void SetCollectedResourcesNodes(TArray<FResourceNodeData>& InCollectedResourceNodes);
+	void SetCollectedResourcesNodes(const TArray<FResourceNodeData>& InCollectedResourceNodes);
 	void CollectWorldResources(const UWorld* World);
 	// FResourceNodeVisualData CollectMeshData(AFGResourceNode* ResourceNode);
 	void LogCollectedResources() const;

@@ -2,6 +2,8 @@
 #include "ResourceNodeRandomizer.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "Components/BoxComponent.h"
+#include "Engine/StaticMeshActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "Resources/FGResourceNode.h"
 #include "Representation/FGResourceNodeRepresentation.h"
@@ -15,9 +17,15 @@
 UResourceNodeSpawner::UResourceNodeSpawner()
 {
 	NodeRandomizer = nullptr;
+	// SpawnedResourceNodes.Empty();
 }
 
-void UResourceNodeSpawner::SpawnWorldResources(UWorld* World, UResourceNodeRandomizer* InNodeRandomizer)
+/// Parent method to Spawn world resources
+/// TODO Currently only spawns solid resources, will add additional resources soon(TM)
+/// @param World World Context
+/// @param InNodeRandomizer The node randomizer instance so we can grab nodes from it
+/// @param IsFromSaved If we have already randomized nodes, we should load from save instead
+void UResourceNodeSpawner::SpawnWorldResources(UWorld* World, UResourceNodeRandomizer* InNodeRandomizer, const bool IsFromSaved)
 {
 	NodeRandomizer = InNodeRandomizer;
 	if (!World)
@@ -32,17 +40,24 @@ void UResourceNodeSpawner::SpawnWorldResources(UWorld* World, UResourceNodeRando
 		                                              ELogLevel::Error);
 		return;
 	}
-
-	const TArray<FResourceNodeData>& ProcessedNodes = NodeRandomizer->GetProcessedNodes();
-	UResourceRouletteAssets* ResourceAssets = NewObject<UResourceRouletteAssets>();
-
-	FResourceRouletteUtilityLog::Get().LogMessage("Attempting to spawn resource node.", ELogLevel::Debug);
+	ProcessedNodes.Empty();
+	if (IsFromSaved)
+	{
+		AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World);
+		ProcessedNodes = ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes();
+	}
+	else
+	{
+		ProcessedNodes = NodeRandomizer->GetProcessedNodes();
+	}
+	const UResourceRouletteAssets* ResourceAssets = NewObject<UResourceRouletteAssets>();
+	
 	FResourceRouletteUtilityLog::Get().LogMessage(
 		FString::Printf(TEXT("Number of nodes to spawn: %d"), ProcessedNodes.Num()), ELogLevel::Debug);
 
-	for (const FResourceNodeData& NodeData : ProcessedNodes)
+	for (FResourceNodeData& NodeData : ProcessedNodes)
 	{
-		if (!SpawnCustomResourceNodeSolid(World, NodeData, ResourceAssets))
+		if (!SpawnResourceNodeSolid(World, NodeData, ResourceAssets))
 		{
 			FResourceRouletteUtilityLog::Get().LogMessage(
 				FString::Printf(TEXT("Failed to spawn resource node at location: %s"), *NodeData.Location.ToString()),
@@ -52,14 +67,22 @@ void UResourceNodeSpawner::SpawnWorldResources(UWorld* World, UResourceNodeRando
 	}
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
+		ResourceRouletteSubsystem->SetSessionRandomizedResourceNodes(ProcessedNodes);
 		ResourceRouletteSubsystem->SetSessionAlreadySpawned(true);
 	}
 }
 
-bool UResourceNodeSpawner::SpawnCustomResourceNodeSolid(UWorld* World, const FResourceNodeData& NodeData,
+/// Spawns Solid resource nodes into the world
+/// Thanks to Oukibt https://github.com/oukibt/ResourceNodeRandomizer 
+/// I relied heavily on their original SolidResourceNodeSpawner.cpp to know what needed to be set in order to spawn nodes
+/// @param World World Context
+/// @param NodeData The node data for what needs spawned
+/// @param ResourceAssets Hardcoded :( list of assets
+/// @return Returns True if succeeds
+bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeData& NodeData,
                                                         const UResourceRouletteAssets* ResourceAssets)
 {
-	if (!NodeData.ResourceClass)
+	if (NodeData.ResourceClass.IsNone())
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage(
 			FString::Printf(TEXT("Invalid ResourceClass for node at location: %s"), *NodeData.Location.ToString()),
@@ -69,12 +92,13 @@ bool UResourceNodeSpawner::SpawnCustomResourceNodeSolid(UWorld* World, const FRe
 	}
 
 	// For now only Solid Nodes TODO Add other node types
-	const FName ResourceClassName = NodeData.ResourceClass->GetFName();
+	const FName ResourceClassName = NodeData.ResourceClass;
 	const FString MeshPath = ResourceAssets->GetSolidMesh(ResourceClassName);
 	TArray<FString> MaterialPaths = ResourceAssets->GetSolidMaterial(ResourceClassName);
-	const FVector Offset = ResourceAssets->GetSolidOffset(ResourceClassName);
-	const FVector Scale = ResourceAssets->GetSolidScale(ResourceClassName);
+	NodeData.Offset = ResourceAssets->GetSolidOffset(ResourceClassName);
+	NodeData.Scale = ResourceAssets->GetSolidScale(ResourceClassName);
 
+	
 	// Load the mesh asset
 	UStaticMesh* Mesh = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), nullptr, *MeshPath));
 	if (!Mesh)
@@ -105,9 +129,20 @@ bool UResourceNodeSpawner::SpawnCustomResourceNodeSolid(UWorld* World, const FRe
 			return false;
 		}
 	}
+	
+	UClass* Classname = FindObject<UClass>(ANY_PACKAGE, *NodeData.Classname);
+	// TODO - Probably we should do something about the rotation
 
-	AFGResourceNode* ResourceNode = World->SpawnActor<AFGResourceNode>(NodeData.Classname, NodeData.Location,
-	                                                                   NodeData.Rotation);
+	AFGResourceNode* ResourceNode;
+	if (NodeData.IsRayCasted)
+	{
+		ResourceNode = World->SpawnActor<AFGResourceNode>(Classname, NodeData.Location,NodeData.Rotation);
+	}
+	else
+	{
+
+		ResourceNode = World->SpawnActor<AFGResourceNode>(Classname, NodeData.Location,FRotator::ZeroRotator);
+	}
 	if (!ResourceNode)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage(
@@ -115,11 +150,13 @@ bool UResourceNodeSpawner::SpawnCustomResourceNodeSolid(UWorld* World, const FRe
 			ELogLevel::Warning);
 		return false;
 	}
+	// NodeData.NodePointer = ResourceNode;
+	
 	// FResourceRouletteUtilityLog::Get().LogMessage(
 	//     FString::Printf(TEXT("Spawned Resource Node at location: %s"), *NodeData.Location.ToString()), ELogLevel::Debug);
 
-
-	ResourceNode->InitResource(NodeData.ResourceClass, NodeData.Amount, NodeData.Purity);
+	UClass* ResourceClass = FindObject<UClass>(ANY_PACKAGE, *NodeData.ResourceClass.ToString());
+	ResourceNode->InitResource(ResourceClass, NodeData.Amount, NodeData.Purity);
 	ResourceNode->SetActorScale3D(NodeData.Scale);
 	ResourceNode->mResourceNodeType = NodeData.ResourceNodeType;
 	ResourceNode->mCanPlacePortableMiner = NodeData.bCanPlaceResourceExtractor;
@@ -130,9 +167,15 @@ bool UResourceNodeSpawner::SpawnCustomResourceNodeSolid(UWorld* World, const FRe
 		ResourceNode->mResourceNodeRepresentation = NewObject<UFGResourceNodeRepresentation>(ResourceNode);
 		ResourceNode->mResourceNodeRepresentation->SetupResourceNodeRepresentation(ResourceNode);
 	}
-
+	
+	ResourceNode->UpdateMeshFromDescriptor();
+	ResourceNode->UpdateNodeRepresentation();
+	
 	ResourceNode->InitRadioactivity();
-	ResourceNode->UpdateRadioactivity();
+
+	ResourceNode->mBoxComponent->SetWorldLocation(NodeData.Location);
+	ResourceNode->mBoxComponent->SetWorldScale3D(FVector(30.0f, 30.0f, 2.0f));
+	ResourceNode->mBoxComponent->SetCollisionProfileName("Resource");
 
 	UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(ResourceNode);
 	if (!MeshComponent)
@@ -163,19 +206,31 @@ bool UResourceNodeSpawner::SpawnCustomResourceNodeSolid(UWorld* World, const FRe
 	ResourceNode->SetRootComponent(MeshComponent);
 	MeshComponent->RegisterComponent();
 
-	FVector Min, Max;
-	MeshComponent->GetLocalBounds(Min, Max);
-	const FVector MeshPivot = (Min + Max) / 2.0f;
-	FTransform MeshTransform = MeshComponent->GetComponentTransform();
-	FVector AdjustedPivot = MeshTransform.TransformPosition(MeshPivot);
-	const FVector CorrectedLocation = NodeData.Location - (AdjustedPivot - MeshTransform.GetLocation()) + Offset;
+	// FVector Min, Max;
+	// MeshComponent->GetLocalBounds(Min, Max);
+	// const FVector MeshPivot = (Min + Max) / 2.0f;
+	// FTransform MeshTransform = MeshComponent->GetComponentTransform();
+	// FVector AdjustedPivot = MeshTransform.TransformPosition(MeshPivot);
+	// FVector CorrectedLocation = NodeData.Location - (AdjustedPivot - MeshTransform.GetLocation()) + Offset;
+	FVector CorrectedLocation = NodeData.Location + NodeData.Offset;
 	MeshComponent->SetWorldLocation(CorrectedLocation);
 	// TODO resolve the rotation stuff, maybe it's better to go back to actor and raycast and set up "nice" node locations?
-	// MeshComponent->SetWorldRotation(NodeData.Rotation);
-	MeshComponent->SetWorldScale3D(Scale);
+	MeshComponent->SetWorldScale3D(NodeData.Scale);
+	if (NodeData.IsRayCasted)
+	{
+		MeshComponent->SetWorldRotation(NodeData.Rotation);
+	}
+	else
+	{
+		MeshComponent->SetWorldRotation(FRotator::ZeroRotator);
+	}
 
 	// FResourceRouletteUtilityLog::Get().LogMessage(
 	//     FString::Printf(TEXT("Spawned Mesh for Node at location: %s"), *NodeData.Location.ToString()), ELogLevel::Debug);
 
+	NodeData.NodeGUID = FGuid::NewGuid();
+	SpawnedResourceNodes.Add(NodeData.NodeGUID, ResourceNode);
+	
 	return true;
 }
+

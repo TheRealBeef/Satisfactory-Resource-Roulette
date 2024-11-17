@@ -13,10 +13,9 @@ class UResourceNodeRandomizer : public UObject
 
 public:
 	UResourceNodeRandomizer();
-	void RandomizeWorldResources(UWorld* World, UResourceCollectionManager* CollectionManager,
-	                             UResourcePurityManager* PurityManager, AResourceRouletteSeedManager* SeedManager);
+	void RandomizeWorldResources(const UWorld* World, UResourceCollectionManager* InCollectionManager,
+	                             UResourcePurityManager* InPurityManager, AResourceRouletteSeedManager* InSeedManager);
 	const TArray<FResourceNodeData>& GetProcessedNodes() const;
-
 
 	float GetGroupingRadius() const;
 	void SetGroupingRadius(float NewRadius);
@@ -25,22 +24,20 @@ private:
 	static void FilterNodes(TArray<FResourceNodeData>& Nodes);
 	static void SortNodes(TArray<FResourceNodeData>& Nodes);
 	static void PseudorandomizeLocations(TArray<FVector>& Locations, int32 Seed);
-	void GroupNodes(FResourceNodeData& CurrentNode, TArray<FResourceNodeData>& RemainingNodes,
-	                TArray<FResourceNodeData>& GroupedNodes, TSet
-	                <int32>& VisitedNodes);
-	void ProcessNodes(const TArray<FResourceNodeData>& NodesToProcess, TArray<FVector>& Locations);
+	void GroupLocations(const FVector& StartingLocation, const TArray<FVector>& Locations,
+												 TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
+												 TSet<int32>& VisitedIndexes);
+	void ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations);
 
-	UPROPERTY()
-	UResourceCollectionManager* CollectionManager;
-
-	UPROPERTY()
-	UResourcePurityManager* PurityManager;
-
-	UPROPERTY()
-	AResourceRouletteSeedManager* SeedManager;
-
-	UPROPERTY()
-	TArray<FResourceNodeData> ProcessedResourceNodes;
+	UPROPERTY()	UResourceCollectionManager* CollectionManager;
+	UPROPERTY()	UResourcePurityManager* PurityManager;
+	UPROPERTY()	AResourceRouletteSeedManager* SeedManager;
+	UPROPERTY()	TArray<FResourceNodeData> ProcessedResourceNodes;
+	
+	TArray<FResourceNodeData> NotProcessedSingleResourceNodes;
+		TArray<FVector> NotProcessedSinglePossibleLocations;
 
 	float GroupingRadius;
+	float SingleNodeSpawnChance;
+	int32 SingleNodeCounter;
 };

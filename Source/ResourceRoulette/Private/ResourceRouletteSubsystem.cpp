@@ -13,10 +13,10 @@ AResourceRouletteSubsystem::AResourceRouletteSubsystem()
 	SeedManager = nullptr;
 	SavedSeed = -1;
 	SavedAlreadySpawned = false;
-	SavedCollectedResourceNodes.Empty();
+	SavedRandomizedResourceNodes.Empty();
 	SessionSeed = -1;
 	SessionAlreadySpawned = false;
-	SessionCollectedResourceNodes.Empty();
+	SessionRandomizedResourceNodes.Empty();
 }
 
 AResourceRouletteSubsystem* AResourceRouletteSubsystem::Get(const UObject* WorldContext)
@@ -46,7 +46,7 @@ void AResourceRouletteSubsystem::InitializeResourceRoulette()
 
 	InitializeWorldSeedManager(GetWorld());
 	bIsInitialized = true;
-	constexpr float UpdateInterval = 5.0f;
+	constexpr float UpdateInterval = 2.5f;
 	GetWorld()->GetTimerManager().SetTimer(UpdateTimerHandle, this, &AResourceRouletteSubsystem::UpdateResourceRoulette,
 	                                       UpdateInterval, true);
 	FResourceRouletteUtilityLog::Get().LogMessage("Resource Roulette initialized successfully.", ELogLevel::Debug);
@@ -119,7 +119,7 @@ void AResourceRouletteSubsystem::PreSaveGame_Implementation(int32 SaveVersion, i
 {
 	SavedSeed = SessionSeed;
 	SavedAlreadySpawned = SessionAlreadySpawned;
-	SavedCollectedResourceNodes = SessionCollectedResourceNodes;
+	SavedRandomizedResourceNodes = SessionRandomizedResourceNodes;
 }
 
 /// Loads our data from the savefile
@@ -141,9 +141,9 @@ void AResourceRouletteSubsystem::PostLoadGame_Implementation(int32 SaveVersion, 
 		FResourceRouletteUtilityLog::Get().LogMessage(
 			TEXT("PostLoadGame: Resource Roulette Previously Spawned Resources"), ELogLevel::Debug);
 	}
-	if (SavedCollectedResourceNodes.Num() > 0)
+	if (SavedRandomizedResourceNodes.Num() > 0)
 	{
-		SessionCollectedResourceNodes = SavedCollectedResourceNodes;
+		SessionRandomizedResourceNodes = SavedRandomizedResourceNodes;
 		FResourceRouletteUtilityLog::Get().LogMessage(
 			TEXT("PostLoadGame: Original List of Nodes loaded"), ELogLevel::Debug);
 	}
@@ -154,8 +154,8 @@ void AResourceRouletteSubsystem::SetSessionAlreadySpawned(const bool InSessionAl
 	SessionAlreadySpawned = InSessionAlreadySpawned;
 }
 
-void AResourceRouletteSubsystem::SetSessionCollectedResourceNodes(
-	const TArray<FResourceNodeData>& InSessionCollectedResourceNodes)
+void AResourceRouletteSubsystem::SetSessionRandomizedResourceNodes(
+	const TArray<FResourceNodeData>& InSessionRandomizedResourceNodes)
 {
-	SessionCollectedResourceNodes = InSessionCollectedResourceNodes;
+	SessionRandomizedResourceNodes = InSessionRandomizedResourceNodes;
 }
