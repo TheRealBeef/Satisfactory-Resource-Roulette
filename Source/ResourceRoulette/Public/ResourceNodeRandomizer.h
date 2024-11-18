@@ -28,7 +28,7 @@ private:
 												 TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
 												 TSet<int32>& VisitedIndexes);
 	void ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations);
-	EResourcePurity AssignPurity(FName ResourceClass) const;
+	EResourcePurity AssignPurity(FName ResourceClass, const FVector& NodeLocation) const;
 
 	UPROPERTY()	UResourceCollectionManager* CollectionManager;
 	UPROPERTY()	UResourcePurityManager* PurityManager;

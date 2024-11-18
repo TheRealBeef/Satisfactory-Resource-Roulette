@@ -8,6 +8,11 @@ UResourcePurityManager::UResourcePurityManager()
 {
 	RemainingPurityCounts.Empty();
 	FoundPurityCounts.Empty();
+	
+	PurityZones.Add({ FVector2D(-50000.0f, 240000.0f), 80000.0f, EResourcePurity::RP_Inpure}); // Grasslands Spawn
+	PurityZones.Add({ FVector2D(50000.0f, -90000.0f), 80000.0f, EResourcePurity::RP_Inpure}); // Northern Forest Spawn
+	PurityZones.Add({ FVector2D(300000.0f, -175000.0f), 120000.0f, EResourcePurity::RP_Inpure}); //Dune Desert Spawn
+	PurityZones.Add({ FVector2D(-220000.0f, -35000.0f), 80000.0f, EResourcePurity::RP_Inpure}); //Rocky Desert Spawn
 }
 
 /// Gets Remaining Purity Counts
@@ -29,6 +34,19 @@ void UResourcePurityManager::SetRemainingPurityCounts(const TMap<FName, TMap<ERe
 const TMap<FName, TMap<EResourcePurity, int32>>& UResourcePurityManager::GetFoundPurityCounts() const
 {
 	return FoundPurityCounts;
+}
+
+EResourcePurity UResourcePurityManager::GetZonePurity(const FVector& Location) const
+{
+	for (const FResourcePurityZone& Zone : PurityZones)
+	{
+		float Distance = FVector2D::Distance(FVector2D(Location.X, Location.Y), Zone.Center);
+		if (Distance <= Zone.Radius)
+		{
+			return Zone.DesiredPurity;
+		}
+	}
+	return EResourcePurity::RP_MAX;
 }
 
 /// Checks to see if the requested purity is available in RemainingPurityCounts
