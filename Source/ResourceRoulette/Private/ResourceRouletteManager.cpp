@@ -90,8 +90,8 @@ void UResourceRouletteManager::ScanWorldResourceNodes(const UWorld* World)
 	}
 	if (!bIsResourcesScanned)
 	{
-		ResourceCollectionManager->CollectWorldResources(World);
 		ResourcePurityManager->CollectWorldPurities(World);
+		ResourceCollectionManager->CollectWorldResources(World);
 		bIsResourcesScanned = true;
 		FResourceRouletteUtilityLog::Get().LogMessage("Resource Scan completed successfully.", ELogLevel::Debug);
 	}

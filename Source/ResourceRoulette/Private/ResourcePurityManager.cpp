@@ -84,13 +84,18 @@ void UResourcePurityManager::CollectWorldPurities(const UWorld* World)
 
 		if (UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
 		{
+			if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
+			{
+				continue;
+			}
+			
 			const EResourcePurity Purity = ResourceNode->GetResoucePurity();
 			const FName ResourceClassName = ResourceNode->GetResourceClass()->GetFName();
 			AddFoundPurity(ResourceClassName, Purity);
 		}
 	}
 
-	LogFoundPurities();
+	// LogFoundPurities();
 	RemainingPurityCounts = FoundPurityCounts;
 }
 

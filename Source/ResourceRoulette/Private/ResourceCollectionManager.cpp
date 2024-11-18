@@ -88,7 +88,7 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 	}
 
 	// Log and clear collected resources
-	 LogCollectedResources();
+	 // LogCollectedResources();
 }
 
 /// Logs all the collected resources
