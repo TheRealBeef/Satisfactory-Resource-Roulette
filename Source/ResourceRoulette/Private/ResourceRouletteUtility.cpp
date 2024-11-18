@@ -389,12 +389,7 @@ void UResourceRouletteUtility::AssociateExtractorsWithNodes(
     for (TActorIterator<AFGBuildableResourceExtractor> It(World); It; ++It)
     {
         AFGBuildableResourceExtractor* ResourceExtractor = *It;
-
-        if (ResourceExtractor->GetExtractorTypeName() != TEXT("Miner"))
-        {
-            continue;
-        }
-
+    	
         FVector ExtractorLocation = ResourceExtractor->GetActorLocation() - FVector(0.0f, 0.0f, 150.0f);
         AFGResourceNode* ClosestNode = nullptr;
         float ClosestDistance = MinerAssociationRadius;
@@ -403,7 +398,7 @@ void UResourceRouletteUtility::AssociateExtractorsWithNodes(
         {
             if (AFGResourceNode* Node = SpawnedResourceNodes.FindRef(NodeData.NodeGUID))
             {
-                if (Node->IsOccupied())
+                if (!Node || Node->IsOccupied())
                 {
                     continue;
                 }

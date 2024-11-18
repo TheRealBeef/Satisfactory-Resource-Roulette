@@ -177,6 +177,7 @@ bool UResourceNodeSpawner::SpawnResourceNodeDecal(UWorld* World, FResourceNodeDa
 		ResourceNode->mResourceNodeRepresentation->SetupResourceNodeRepresentation(ResourceNode);
 		
 	}
+	ResourceNode->UpdateNodeRepresentation();
 	
 	if (!ResourceNode->mBoxComponent)
 	{
