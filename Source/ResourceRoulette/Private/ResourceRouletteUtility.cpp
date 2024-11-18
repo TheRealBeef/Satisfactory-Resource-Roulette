@@ -164,7 +164,7 @@ bool UResourceRouletteUtility::IsValidInfiniteResourceNode(const AFGResourceNode
 const TArray<FName> UResourceRouletteUtility::ValidResourceClasses = {
 	// "Desc_NitrogenGas_C", // This is a fracking node, it's on TODO
 	// "Desc_Geyser_C", // We'll come back to geysers later TODO
-	// "Desc_LiquidOil_C", // Until I can separate fracking nodes, it's on TODO too :(
+	"Desc_LiquidOil_C",
 	// "Desc_Water_C", // This is a fracking node, it's on TODO
 	"Desc_SAM_C",
 	"Desc_Stone_C",

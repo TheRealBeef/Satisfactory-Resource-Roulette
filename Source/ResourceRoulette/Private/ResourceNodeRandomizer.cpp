@@ -210,7 +210,18 @@ void UResourceNodeRandomizer::FilterNodes(TArray<FResourceNodeData>& Nodes)
 {
 	Nodes.RemoveAll([](const FResourceNodeData& Node)
 	{
-		return Node.ResourceClass.IsNone() || Node.ResourceClass == FName("Desc_Geyser_C");
+		// Remove if no resource class and geysers
+		if (Node.ResourceClass.IsNone() || Node.ResourceClass == FName("Desc_Geyser_C"))
+		{
+			return true;
+		}
+
+		// Remove liquid oilfracking satellites
+		if (Node.ResourceClass == FName("Desc_LiquidOil_C") && Node.ResourceNodeType == EResourceNodeType::FrackingSatellite)
+		{
+			return true;
+		}
+		return false;
 	});
 }
 

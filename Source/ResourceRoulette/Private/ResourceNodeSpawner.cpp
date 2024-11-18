@@ -12,6 +12,7 @@
 #include "ResourceAssets.h"
 #include "ResourceRouletteSubsystem.h"
 #include "ResourceRouletteUtility.h"
+#include "Components/DecalComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 UResourceNodeSpawner::UResourceNodeSpawner()
@@ -57,12 +58,22 @@ void UResourceNodeSpawner::SpawnWorldResources(UWorld* World, UResourceNodeRando
 
 	for (FResourceNodeData& NodeData : ProcessedNodes)
 	{
-		if (!SpawnResourceNodeSolid(World, NodeData, ResourceAssets))
+		bool bSpawned = false;
+
+		if (NodeData.ResourceForm == EResourceForm::RF_LIQUID) // Decal-based nodes, but could include fracking oil nodes :(
+		{
+			bSpawned = SpawnResourceNodeDecal(World, NodeData, ResourceAssets);
+		}
+		else // It must be one of them Solid nodes
+		{
+			bSpawned = SpawnResourceNodeSolid(World, NodeData, ResourceAssets);
+		}
+
+		if (!bSpawned)
 		{
 			FResourceRouletteUtilityLog::Get().LogMessage(
 				FString::Printf(TEXT("Failed to spawn resource node at location: %s"), *NodeData.Location.ToString()),
-				ELogLevel::Warning
-			);
+				ELogLevel::Warning);
 		}
 	}
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
@@ -71,6 +82,126 @@ void UResourceNodeSpawner::SpawnWorldResources(UWorld* World, UResourceNodeRando
 		ResourceRouletteSubsystem->SetSessionAlreadySpawned(true);
 	}
 }
+
+/// Handles spawning nodes that use decals - in the case that's crude oil nodes
+/// @param World World Context
+/// @param NodeDataNode data to process
+/// @param ResourceAssets Asset manager with our paths/decal size
+/// @return True if succeeded
+bool UResourceNodeSpawner::SpawnResourceNodeDecal(UWorld* World, FResourceNodeData& NodeData, const UResourceRouletteAssets* ResourceAssets)
+{
+    if (NodeData.ResourceClass.IsNone())
+    {
+        FResourceRouletteUtilityLog::Get().LogMessage(
+            FString::Printf(TEXT("Invalid ResourceClass for node at location: %s"), *NodeData.Location.ToString()),
+            ELogLevel::Warning);
+        return false;
+    }
+
+    const FName ResourceClassName = NodeData.ResourceClass;
+	
+    TArray<FString> MaterialPaths = ResourceAssets->GetLiquidMaterials(ResourceClassName);
+    float DecalScale = ResourceAssets->GetLiquidDecalScale(ResourceClassName);
+
+    if (MaterialPaths.Num() == 0)
+    {
+        FResourceRouletteUtilityLog::Get().LogMessage(
+            FString::Printf(TEXT("No materials found for liquid resource: %s"), *ResourceClassName.ToString()),
+            ELogLevel::Warning);
+        return false;
+    }
+	
+    UMaterialInterface* DecalMaterial = Cast<UMaterialInterface>(
+        StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *MaterialPaths[0]));
+
+    if (!DecalMaterial)
+    {
+        FResourceRouletteUtilityLog::Get().LogMessage(
+            FString::Printf(TEXT("Failed to load decal material for resource: %s, Path: %s"), 
+                            *ResourceClassName.ToString(), 
+                            *MaterialPaths[0]),
+            ELogLevel::Warning);
+        return false;
+    }
+	
+    UClass* Classname = FindObject<UClass>(ANY_PACKAGE, *NodeData.Classname);
+    if (!Classname)
+    {
+        FResourceRouletteUtilityLog::Get().LogMessage(
+            FString::Printf(TEXT("Failed to find class for resource node: %s"), *NodeData.Classname),
+            ELogLevel::Warning);
+        return false;
+    }
+
+    AFGResourceNode* ResourceNode = World->SpawnActor<AFGResourceNode>(Classname, NodeData.Location, NodeData.Rotation);
+    if (!ResourceNode)
+    {
+        FResourceRouletteUtilityLog::Get().LogMessage(
+            FString::Printf(TEXT("Failed to spawn resource node at location: %s"), *NodeData.Location.ToString()),
+            ELogLevel::Warning);
+        return false;
+    }
+	
+    UDecalComponent* DecalComponent = NewObject<UDecalComponent>(ResourceNode);
+    if (!DecalComponent)
+    {
+        FResourceRouletteUtilityLog::Get().LogMessage(
+            FString::Printf(TEXT("Failed to create DecalComponent for resource node at location: %s"), *NodeData.Location.ToString()),
+            ELogLevel::Warning);
+        ResourceNode->Destroy();
+        return false;
+    }
+
+	DecalComponent->ComponentTags.Add(ResourceRouletteTag);
+    DecalComponent->SetDecalMaterial(DecalMaterial);
+    DecalComponent->DecalSize = FVector(80,DecalScale,DecalScale);
+    DecalComponent->SetWorldLocation(NodeData.Location);
+    // DecalComponent->SetWorldRotation(NodeData.Rotation);
+	// DecalComponent->SetWorldRotation(FRotator::ZeroRotator);
+	DecalComponent->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));
+    DecalComponent->RegisterComponent();
+	
+    ResourceNode->SetRootComponent(DecalComponent);
+    ResourceNode->AddInstanceComponent(DecalComponent);
+
+	UClass* ResourceClass = FindObject<UClass>(ANY_PACKAGE, *NodeData.ResourceClass.ToString());
+    ResourceNode->InitResource(ResourceClass, NodeData.Amount, NodeData.Purity);
+    ResourceNode->SetActorScale3D(FVector(1.0f));
+    ResourceNode->mResourceNodeType = NodeData.ResourceNodeType;
+    ResourceNode->mCanPlacePortableMiner = NodeData.bCanPlaceResourceExtractor;
+    ResourceNode->mCanPlaceResourceExtractor = NodeData.bCanPlaceResourceExtractor;
+	
+	if (!ResourceNode->mResourceNodeRepresentation)
+	{
+		ResourceNode->mResourceNodeRepresentation = NewObject<UFGResourceNodeRepresentation>(ResourceNode);
+		ResourceNode->mResourceNodeRepresentation->SetupResourceNodeRepresentation(ResourceNode);
+		
+	}
+	
+	if (!ResourceNode->mBoxComponent)
+	{
+		ResourceNode->mBoxComponent = NewObject<UBoxComponent>(ResourceNode);
+		ResourceNode->mBoxComponent->SetCollisionProfileName("Resource");
+		ResourceNode->mBoxComponent->SetupAttachment(ResourceNode->GetRootComponent());
+		ResourceNode->mBoxComponent->RegisterComponent();
+	}
+
+	ResourceNode->mBoxComponent->SetGenerateOverlapEvents(true);
+	ResourceNode->mBoxComponent->SetWorldScale3D(FVector(30.0f, 30.0f, 2.0f));
+
+	
+    // Register the node in the tracking system
+    NodeData.NodeGUID = FGuid::NewGuid();
+    SpawnedResourceNodes.Add(NodeData.NodeGUID, ResourceNode);
+
+    FResourceRouletteUtilityLog::Get().LogMessage(
+        FString::Printf(TEXT("Successfully spawned decal resource node: %s at location: %s"),
+                        *ResourceClassName.ToString(), *NodeData.Location.ToString()),
+        ELogLevel::Debug);
+
+    return true;
+}
+
 
 /// Spawns Solid resource nodes into the world
 /// Thanks to Oukibt https://github.com/oukibt/ResourceNodeRandomizer 
@@ -150,7 +281,6 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 			ELogLevel::Warning);
 		return false;
 	}
-	// NodeData.NodePointer = ResourceNode;
 	
 	// FResourceRouletteUtilityLog::Get().LogMessage(
 	//     FString::Printf(TEXT("Spawned Resource Node at location: %s"), *NodeData.Location.ToString()), ELogLevel::Debug);
@@ -172,11 +302,7 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 	ResourceNode->UpdateNodeRepresentation();
 	
 	ResourceNode->InitRadioactivity();
-
-	ResourceNode->mBoxComponent->SetWorldLocation(NodeData.Location);
-	ResourceNode->mBoxComponent->SetWorldScale3D(FVector(30.0f, 30.0f, 2.0f));
-	ResourceNode->mBoxComponent->SetCollisionProfileName("Resource");
-
+	
 	UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(ResourceNode);
 	if (!MeshComponent)
 	{
@@ -206,12 +332,6 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 	ResourceNode->SetRootComponent(MeshComponent);
 	MeshComponent->RegisterComponent();
 
-	// FVector Min, Max;
-	// MeshComponent->GetLocalBounds(Min, Max);
-	// const FVector MeshPivot = (Min + Max) / 2.0f;
-	// FTransform MeshTransform = MeshComponent->GetComponentTransform();
-	// FVector AdjustedPivot = MeshTransform.TransformPosition(MeshPivot);
-	// FVector CorrectedLocation = NodeData.Location - (AdjustedPivot - MeshTransform.GetLocation()) + Offset;
 	FVector CorrectedLocation = NodeData.Location + NodeData.Offset;
 	MeshComponent->SetWorldLocation(CorrectedLocation);
 	// TODO resolve the rotation stuff, maybe it's better to go back to actor and raycast and set up "nice" node locations?

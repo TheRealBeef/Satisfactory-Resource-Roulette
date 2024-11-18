@@ -9,14 +9,10 @@ struct FResourceRouletteAssetSolid
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	FString MeshPath;
-	UPROPERTY()
-	TArray<FString> MaterialPaths;
-	UPROPERTY()
-	FVector MeshOffset;
-	UPROPERTY()
-	FVector MeshScale;
+	UPROPERTY()	FString MeshPath;
+	UPROPERTY()	TArray<FString> MaterialPaths;
+	UPROPERTY()	FVector MeshOffset;
+	UPROPERTY()	FVector MeshScale;
 };
 
 USTRUCT()
@@ -24,14 +20,10 @@ struct FResourceRouletteAssetHeat
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	FString MeshPath;
-	UPROPERTY()
-	TArray<FString> MaterialPaths;
-	UPROPERTY()
-	FVector MeshOffset;
-	UPROPERTY()
-	FVector MeshScale;
+	UPROPERTY()	FString MeshPath;
+	UPROPERTY()	TArray<FString> MaterialPaths;
+	UPROPERTY()	FVector MeshOffset;
+	UPROPERTY()	FVector MeshScale;
 };
 
 USTRUCT()
@@ -39,10 +31,8 @@ struct FResourceRouletteAssetLiquid
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	TArray<FString> MaterialPaths;
-	UPROPERTY()
-	float DecalSize;
+	UPROPERTY()	TArray<FString> MaterialPaths;
+	UPROPERTY()	float DecalSize;
 };
 
 USTRUCT()
@@ -50,14 +40,10 @@ struct FResourceRouletteAssetFracking
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	TArray<FString> MeshPaths;
-	UPROPERTY()
-	TArray<FString> MaterialPaths;
-	UPROPERTY()
-	FVector MeshOffset;
-	UPROPERTY()
-	FVector MeshScale;
+	UPROPERTY()	TArray<FString> MeshPaths;
+	UPROPERTY()	TArray<FString> MaterialPaths;
+	UPROPERTY()	FVector MeshOffset;
+	UPROPERTY()	FVector MeshScale;
 };
 
 UCLASS()

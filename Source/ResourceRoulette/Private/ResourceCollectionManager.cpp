@@ -38,6 +38,11 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 			continue;
 		}
 
+		if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
+		{
+			continue;
+		}
+		
 		// Collect node infos
 		FResourceNodeData NodeData;
 		NodeData.Classname = ResourceNode->GetClass()->GetName();
@@ -57,7 +62,7 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 		// Add node data to collection
 		CollectedResourceNodes.Add(NodeData);
 
-		// Destroy the mesh
+		// Destroy the mesh and/or decal
 		TArray<UStaticMeshComponent*> MeshComponents;
 		ResourceNode->GetComponents(MeshComponents);
 		for (UStaticMeshComponent* MeshComponent : MeshComponents)
@@ -69,12 +74,21 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 				MeshComponent->DestroyComponent();
 			}
 		}
+		TArray<UDecalComponent*> DecalComponents;
+		for (UDecalComponent* DecalComponent : DecalComponents)
+		{
+			if (DecalComponent)
+			{
+				DecalComponent->SetVisibility(false);
+				DecalComponent->DestroyComponent();
+			}
+		}
 		// and then the actor
 		ResourceNode->Destroy();
 	}
 
 	// Log and clear collected resources
-	// LogCollectedResources();
+	 LogCollectedResources();
 }
 
 /// Logs all the collected resources
@@ -84,12 +98,18 @@ void UResourceCollectionManager::LogCollectedResources() const
 	for (const FResourceNodeData& NodeData : CollectedResourceNodes)
 	{
 		// Get the resource class name or default to "UnknownClass" if null
-		FString ResourceClassName = NodeData.ResourceClass != NAME_None ? NodeData.ResourceClass.ToString() : "UnknownClass";;
+		FString ResourceClassName = NodeData.ResourceClass != NAME_None 
+			? NodeData.ResourceClass.ToString() 
+			: "UnknownClass";
 
 		// Format the general information string
 		FString GeneralInfo = FString::Printf(
 			TEXT(
-				"%s | ResourceForm: %s | Location: %s | Rotation: %s | Scale: %s | Purity: %d | Amount: %d | CanPlaceExtractor: %s | IsOccupied: %s"),
+				"Classname: %s | ResourceClass: %s | ResourceForm: %s | Location: %s | Rotation: %s | Scale: %s | "
+				"Purity: %d | Amount: %d | ResourceNodeType: %s | CanPlaceExtractor: %s | IsOccupied: %s | "
+				"RayCasted: %s | NodeGUID: %s"
+			),
+			*NodeData.Classname,
 			*ResourceClassName,
 			*StaticEnum<EResourceForm>()->GetNameStringByValue(static_cast<int64>(NodeData.ResourceForm)),
 			*NodeData.Location.ToString(),
@@ -97,8 +117,11 @@ void UResourceCollectionManager::LogCollectedResources() const
 			*NodeData.Scale.ToString(),
 			static_cast<int32>(NodeData.Purity),
 			static_cast<int32>(NodeData.Amount),
+			*StaticEnum<EResourceNodeType>()->GetNameStringByValue(static_cast<int64>(NodeData.ResourceNodeType)),
 			NodeData.bCanPlaceResourceExtractor ? TEXT("Yes") : TEXT("No"),
-			NodeData.bIsOccupied ? TEXT("Yes") : TEXT("No")
+			NodeData.bIsOccupied ? TEXT("Yes") : TEXT("No"),
+			NodeData.IsRayCasted ? TEXT("Yes") : TEXT("No"),
+			*NodeData.NodeGUID.ToString()
 		);
 
 		// Log the general information for this node

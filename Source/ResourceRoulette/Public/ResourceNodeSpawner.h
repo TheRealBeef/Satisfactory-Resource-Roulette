@@ -17,6 +17,8 @@ public:
 	UResourceNodeSpawner();
 
 	void SpawnWorldResources(UWorld* World, UResourceNodeRandomizer* InNodeRandomizer, bool IsFromSaved);
+	bool SpawnResourceNodeDecal(UWorld* World, FResourceNodeData& NodeData,
+	                            const UResourceRouletteAssets* ResourceAssets);
 
 	TMap<FGuid, AFGResourceNode*>& GetSpawnedResourceNodes() {return SpawnedResourceNodes;}
 	

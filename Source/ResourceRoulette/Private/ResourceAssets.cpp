@@ -141,7 +141,7 @@ const TMap<FName, FResourceRouletteAssetLiquid> UResourceRouletteAssets::LiquidR
 	{
 		"Desc_LiquidOil_C", FResourceRouletteAssetLiquid{
 			{"/Game/FactoryGame/Resource/RawResources/CrudeOil/Material/CrudeOil_Puddle.CrudeOil_Puddle"},
-			200.0f
+			500.0f
 		}
 	}
 };

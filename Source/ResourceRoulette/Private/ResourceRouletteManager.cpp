@@ -6,6 +6,7 @@
 #include "ResourceCollectionManager.h"
 #include "ResourceNodeRandomizer.h"
 #include "ResourceRouletteSubsystem.h"
+#include "Components/DecalComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 
@@ -204,13 +205,19 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 	
 	TArray<FResourceNodeData> ProcessedNodes = ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes();
 
+	
 	// double StartNodeUpdatingTime = FPlatformTime::Seconds();
 
 	// Somehow this takes <1ms to run normally, even when we're updating and raycasting things
 	// I have no idea how, but this is some dark magic UE must be running behind the scenes
 	bool bNodeUpdated = false;
 	for (FResourceNodeData& NodeData : ProcessedNodes)
-	{		
+	{
+		if (NodeData.ResourceForm == EResourceForm::RF_LIQUID)
+		{
+			// We shouldn't really raycast oil nodes since they're decals...
+			continue;
+		}
 		if (!NodeData.IsRayCasted && FVector::Dist(NodeData.Location, PlayerLocation) <= UpdateRadius)
 		{
 			if (AFGResourceNode** ResourceNodePtr = ResourceNodeSpawner->GetSpawnedResourceNodes().Find(NodeData.NodeGUID))
@@ -281,7 +288,17 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 		StaticMeshComponent->DestroyComponent();
 	}
 
-
+	// TODO Check to see how many elements this is so we can determine if it needs parallelized too (probably not)
+	TArray<UDecalComponent*> DecalComponents;
+	for (UDecalComponent* DecalComponent : DecalComponents)
+	{
+		if (DecalComponent && !DecalComponent->ComponentTags.Contains(ResourceRouletteTag))
+		{
+			DecalComponent->SetVisibility(false);
+			DecalComponent->DestroyComponent();
+		}
+	}
+	
 	// Bruh this is way too slow
 	// for (TObjectIterator<UStaticMeshComponent> It; It; ++It)
 	// {
