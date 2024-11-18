@@ -12,9 +12,9 @@ This mod is still in it's early phases and updates in the near future will likel
 Beef's Resource Roulette allows you to randomize the locations of resources in the gameworld.
 
 ## Features
-- Randomizes Resources in the world
-  - Includes ability to randomize crude oil locations
-  - Including compatibility with modded resource nodes from Ficsit Farming and Refined Power and easy ability to add more
+- Randomizes Resources in the world, and updates their visual features accordingly.
+  - Includes ability to randomize all solid nodes and crude oil resources
+  - Includes compatibility with modded resource nodes from Ficsit Farming and Refined Power and easy ability to add more
 
 - Handles odd node locations resulting in angled resource nodes gracefully with automagically world-aligning logic
 
@@ -24,7 +24,7 @@ Beef's Resource Roulette allows you to randomize the locations of resources in t
 
 ## Changelog
 - Version: 1.0.0
-  - Not yet released
+  - Initial Release
 
 ## Roadmap
 
