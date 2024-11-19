@@ -100,7 +100,7 @@ void AResourceRouletteSubsystem::UpdateResourceRoulette() const
 		return;
 	}
 	ResourceRouletteManager->Update(GetWorld(), SeedManager);
-	FResourceRouletteUtilityLog::Get().LogMessage("Resource nodes updated successfully.", ELogLevel::Debug);
+	// FResourceRouletteUtilityLog::Get().LogMessage("Resource nodes updated successfully.", ELogLevel::Debug);
 }
 
 /// On shutdown it Clears the timers.

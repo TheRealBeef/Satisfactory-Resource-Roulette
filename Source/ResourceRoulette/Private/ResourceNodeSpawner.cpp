@@ -195,10 +195,10 @@ bool UResourceNodeSpawner::SpawnResourceNodeDecal(UWorld* World, FResourceNodeDa
     NodeData.NodeGUID = FGuid::NewGuid();
     SpawnedResourceNodes.Add(NodeData.NodeGUID, ResourceNode);
 
-    FResourceRouletteUtilityLog::Get().LogMessage(
-        FString::Printf(TEXT("Successfully spawned decal resource node: %s at location: %s"),
-                        *ResourceClassName.ToString(), *NodeData.Location.ToString()),
-        ELogLevel::Debug);
+    // FResourceRouletteUtilityLog::Get().LogMessage(
+    //     FString::Printf(TEXT("Successfully spawned decal resource node: %s at location: %s"),
+    //                     *ResourceClassName.ToString(), *NodeData.Location.ToString()),
+    //     ELogLevel::Debug);
 
     return true;
 }
@@ -303,6 +303,7 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 	ResourceNode->UpdateNodeRepresentation();
 	
 	ResourceNode->InitRadioactivity();
+	ResourceNode->UpdateRadioactivity();
 	
 	UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(ResourceNode);
 	if (!MeshComponent)
