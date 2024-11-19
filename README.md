@@ -23,6 +23,8 @@ Beef's Resource Roulette allows you to randomize the locations of resources in t
 - Crude oil and resource node meshes have grass spawning through them sometimes, this should be able to be resolved in roadmap later on
 
 ## Changelog
+- Version: 1.0.1
+  - Prevent a rare issue with radiation emitter spawning inside the player
 - Version: 1.0.0
   - Initial Release
 
