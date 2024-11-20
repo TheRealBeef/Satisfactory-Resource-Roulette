@@ -36,7 +36,7 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 
 ## Changelog
 - Version: 1.0.3
-  - Add simple configuration options. Set these on the main menu as they only apply to new sessions until re-roll functionality is added in a future update.
+  - Add randomization and grouping configuration options. Set these on the main menu as changes to these settings will only apply to new sessions until re-roll functionality is added in a future update.
 - Version: 1.0.2
   - Fix resource scanner not pinging nodes
 - Version: 1.0.1
