@@ -40,6 +40,7 @@ Beef's Resource Roulette allows you to randomize the locations of resources in t
 - [ ] Mix up fracking nodes (same locations but change the resource type/purities)
 - [ ] Investigate adding new fracking node locations and use raycasting magic to settle them?
 - [ ] Add additional locations for resource nodes, since already auto-leveling nodes is achieved
+- [ ] Add support for https://ficsit.app/mod/AllMinable
 
 ## Credits
 
