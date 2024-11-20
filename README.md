@@ -4,22 +4,21 @@
 <img alt="Icon" src="./ResourceRoulette.png" width="15%" />
 </p>
 
-# NOTE **Do not use with a world you are not willing to abandon**
+# NOTE: **Do not use with a world you are not willing to abandon**
 This mod is still in it's early phases and updates in the near future will likely break saves, especially ensuring Multiplayer works properly and adding configuration options.
 
 ## Description
-
-Beef's Resource Roulette allows you to randomize the locations of resources in the gameworld.
+Beef's Resource Roulette allows you to randomize the locations of resource nodes in the gameworld.
 
 ## Features
 - Randomizes Resources in the world, and updates their visual features accordingly.
   - Includes ability to randomize all solid nodes and crude oil resources
   - Includes compatibility with modded resource nodes from Ficsit Farming and Refined Power and easy ability to add more
-
+- The total number of pure/normal/impure nodes in the world is identical to playing without this mod so it neither increases nor decreases availability of resources in the world, only how hard you have to work to find them
 - Handles odd node locations resulting in angled resource nodes gracefully with automagically world-aligning logic
 - Configuration Options (Currently only applies to new sessions, will be addressed in future update)
 
-## Options
+## Configuration Options
 ### Randomization Options
 - Purity Exclusion Zones - If used, tries to exclude higher-purity nodes from starting areas to increase challenge
 - Individual options to randomize specific resources (E.g. Uranium, SAM, etc)
@@ -29,10 +28,11 @@ Beef's Resource Roulette allows you to randomize the locations of resources in t
   - Lower values results in higher diversity and randomness among nodes.
 - Individual options to group resources that are not grouped by default (E.g. Uranium, SAM, etc)
 
-## Known Bugs
+## Known Bugs/Issues
+- Nodes visually shift as you get closer to them the first time, this is the result of automagically aligning them. This only occurs once per node in each save, when it is about 250m away from the player location. I'll look into smoothing this motion in the future.
 - I haven't gotten local multiplayer to work yet on my machine, so it's yet untested in Multiplayer/Dedicated.
 - Crude oil and resource node meshes have grass spawning through them sometimes, this should be able to be resolved in roadmap later on
-- Currently conflicts with Buildable Nodes Redux and potentially All Minable as well.
+- Currently conflicts with "Buildable Nodes Redux" and potentially "All Minable" as well.
 
 ## Changelog
 - Version: 1.0.3
@@ -42,7 +42,7 @@ Beef's Resource Roulette allows you to randomize the locations of resources in t
 - Version: 1.0.1
   - Prevent a rare issue with radiation emitter spawning inside the player
 - Version: 1.0.0
-  - Initial Release
+  - Initial Release: Note - This mod is released for feedback and improvements and is intended to be used in Singleplayer, future updates are likely to change resource distribution and alter logic to ensure multiplayer works, so this should not yet be used with a world you are not willing to abandon and/or significantly restructure.
 
 ## Roadmap
 - [X] Include "Purity exclusion zones" around spawn locations that keep pure and/or normal nodes out to increase starting difficulty and keep grasslands from turning into free-for-all resource world
