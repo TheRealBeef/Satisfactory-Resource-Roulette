@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "ResourceRouletteConfigStruct.h"
 #include "Containers/Array.h"
 #include "Containers/Map.h"
 #include "Resources/FGResourceNode.h"
@@ -63,8 +64,9 @@ class RESOURCEROULETTE_API UResourceRouletteUtility : public UObject
 	GENERATED_BODY()
 
 public:
-	static const TArray<FName> ValidResourceClasses;
-
+	static TArray<FName> ValidResourceClasses;
+	static TArray<FName> NonGroupableResources;
+	
 	UFUNCTION(BlueprintCallable, Category = "Resource Roulette")
 	static void UseCustomLogFile(bool bEnableCustomLogFile);
 
@@ -76,6 +78,13 @@ public:
 		
 	static bool IsValidResourceClass(const FName& ResourceClassName);
 	static bool IsValidInfiniteResourceNode(const AFGResourceNode* ResourceNode);
+	
+	static void UpdateValidResourceClasses(const FResourceRouletteConfigStruct& Config);
+	static const TArray<FName>& GetValidResourceClasses();
+	
+	static void UpdateNonGroupableResources(const FResourceRouletteConfigStruct& Config);
+	static const TArray<FName>& GetNonGroupableResources();
+
 	static void LogAllResourceNodes(const UWorld* World);
 
 	static FVector CalculateBestFitPlaneNormal(const TArray<FVector>& Points);

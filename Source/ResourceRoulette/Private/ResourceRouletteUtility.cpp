@@ -9,6 +9,7 @@
 #include "HAL/PlatformFilemanager.h"
 #include "Resources/FGResourceNode.h"
 #include "FGPortableMiner.h"
+#include "ResourceRouletteConfigStruct.h"
 #include "Buildables/FGBuildableResourceExtractor.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogResourceRoulette, Log, All);
@@ -161,29 +162,123 @@ bool UResourceRouletteUtility::IsValidInfiniteResourceNode(const AFGResourceNode
 	return IsValidResourceClass(ResourceClassName);
 }
 
-const TArray<FName> UResourceRouletteUtility::ValidResourceClasses = {
-	// "Desc_NitrogenGas_C", // This is a fracking node, it's on TODO
-	// "Desc_Geyser_C", // We'll come back to geysers later TODO
-	"Desc_LiquidOil_C",
-	// "Desc_Water_C", // This is a fracking node, it's on TODO
-	"Desc_SAM_C",
-	"Desc_Stone_C",
-	"Desc_OreIron_C",
-	"Desc_OreCopper_C",
-	"Desc_OreGold_C",
-	"Desc_Coal_C",
-	"Desc_RawQuartz_C",
-	"Desc_Sulfur_C",
-	"Desc_OreBauxite_C",
-	"Desc_OreUranium_C",
-	"Desc_FF_Dirt_Fertilized_C",
-	"Desc_FF_Dirt_C",
-	"Desc_FF_Dirt_Wet_C",
-	// "Desc_RP_Deanium_C", // This is a fracking node, it's on TODO
-	// "Desc_RP_WaterDamNode_C", // We shouldn't randomize this
-	// "Desc_WaterTurbineNode_C", // We shouldn't randomize this
-	"Desc_RP_Thorium_C"
-};
+/// Must be init with UpdateValidResourceClasses
+TArray<FName> UResourceRouletteUtility::ValidResourceClasses;
+
+/// Must be init with UpdateNonGroupableResources
+TArray<FName> UResourceRouletteUtility::NonGroupableResources;
+
+/// Updates the ValidResourceClasses array with config options
+/// @param Config The config struct holding our options
+void UResourceRouletteUtility::UpdateValidResourceClasses(const FResourceRouletteConfigStruct& Config) {
+	ValidResourceClasses = {
+		// "Desc_NitrogenGas_C", // This is a fracking node, it's on TODO
+		// "Desc_Geyser_C", // We'll come back to geysers later TODO
+		"Desc_LiquidOil_C",
+		// "Desc_Water_C", // This is a fracking node, it's on TODO
+		"Desc_SAM_C",
+		"Desc_Stone_C",
+		"Desc_OreIron_C",
+		"Desc_OreCopper_C",
+		"Desc_OreGold_C",
+		"Desc_Coal_C",
+		"Desc_RawQuartz_C",
+		"Desc_Sulfur_C",
+		"Desc_OreBauxite_C",
+		"Desc_OreUranium_C",
+		"Desc_FF_Dirt_Fertilized_C",
+		"Desc_FF_Dirt_C",
+		"Desc_FF_Dirt_Wet_C",
+		// "Desc_RP_Deanium_C", // This is a fracking node, it's on TODO
+		// "Desc_RP_WaterDamNode_C", // We shouldn't randomize this
+		// "Desc_WaterTurbineNode_C", // We shouldn't randomize this
+		"Desc_RP_Thorium_C"
+	};
+
+	if (!Config.RandomizationOptions.RandSAM) {
+		ValidResourceClasses.Remove("Desc_SAM_C");
+	}
+
+	if (!Config.RandomizationOptions.RandUranium) {
+		ValidResourceClasses.Remove("Desc_OreUranium_C");
+	}
+
+	if (!Config.RandomizationOptions.RandBauxite) {
+		ValidResourceClasses.Remove("Desc_OreBauxite_C");
+	}
+
+	if (!Config.RandomizationOptions.RandCrude) {
+		ValidResourceClasses.Remove("Desc_LiquidOil_C");
+	}
+	if (!Config.RandomizationOptions.RandFFDirt)
+	{
+		NonGroupableResources.Remove("Desc_FF_Dirt_Fertilized_C");
+		NonGroupableResources.Remove("Desc_FF_Dirt_C");
+		NonGroupableResources.Remove("Desc_FF_Dirt_Wet_C");
+	}
+	if (!Config.RandomizationOptions.RandRPThorium)
+	{
+		NonGroupableResources.Remove("Desc_RP_Thorium_C");
+	}
+}
+
+/// Returns the current ValidResourceClasses array
+/// @return ValidResoureClasses
+const TArray<FName>& UResourceRouletteUtility::GetValidResourceClasses()
+{
+	return ValidResourceClasses;
+}
+
+/// Updates the NonGroupableResources array with config options
+/// This is somewhat inverse logic to the randomization options
+/// @param Config The config struct holding our options
+void UResourceRouletteUtility::UpdateNonGroupableResources(const FResourceRouletteConfigStruct& Config) {
+	NonGroupableResources = {
+		"Desc_LiquidOil_C",
+		"Desc_SAM_C",
+		"Desc_OreBauxite_C",
+		"Desc_OreUranium_C",
+		"Desc_FF_Dirt_Fertilized_C",
+		"Desc_FF_Dirt_C",
+		"Desc_FF_Dirt_Wet_C",
+		"Desc_RP_Thorium_C"
+	};
+
+	if (Config.GroupingOptions.GroupSAM)
+	{
+		NonGroupableResources.Remove("Desc_SAM_C");
+	}
+	if (Config.GroupingOptions.GroupUranium)
+	{
+		NonGroupableResources.Remove("Desc_OreUranium_C");
+	}
+	if (Config.GroupingOptions.GroupBauxite)
+	{
+		NonGroupableResources.Remove("Desc_OreBauxite_C");
+	}
+	if (Config.GroupingOptions.GroupCrude)
+	{
+		NonGroupableResources.Remove("Desc_LiquidOil_C");
+	}
+	if (Config.GroupingOptions.GroupFFDirt)
+	{
+		NonGroupableResources.Remove("Desc_FF_Dirt_Fertilized_C");
+		NonGroupableResources.Remove("Desc_FF_Dirt_C");
+		NonGroupableResources.Remove("Desc_FF_Dirt_Wet_C");
+	}
+	if (Config.GroupingOptions.GroupRPThorium)
+	{
+		NonGroupableResources.Remove("Desc_RP_Thorium_C");
+	}
+	
+}
+
+/// Returns the current NonGroupableResources array
+/// @return NonGroupableResources
+const TArray<FName>& UResourceRouletteUtility::GetNonGroupableResources()
+{
+	return NonGroupableResources;
+}
 
 /// Logs all the resource nodes in the world
 /// @param World World Context

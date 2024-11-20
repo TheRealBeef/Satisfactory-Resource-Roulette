@@ -32,6 +32,10 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 		return;
 	}
 
+	// Get config options
+    FResourceRouletteConfigStruct Config = FResourceRouletteConfigStruct::GetActiveConfig(CollectionManager);
+    bool bUsePurityExclusion = Config.RandomizationOptions.UsePurityExclusion;
+
 	const int32 Seed = SeedManager->GetGlobalSeed();
 	TArray<FResourceNodeData> NotProcessedResourceNodes = CollectionManager->GetCollectedResourceNodes();
 	FilterNodes(NotProcessedResourceNodes);
@@ -45,7 +49,7 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 	NotProcessedPossibleLocations.Sort([](const FVector& A, const FVector& B) { return A.X < B.X; });
 	PseudorandomizeLocations(NotProcessedPossibleLocations, Seed);
 	
-	ProcessNodes(NotProcessedResourceNodes, NotProcessedPossibleLocations);
+	ProcessNodes(NotProcessedResourceNodes, NotProcessedPossibleLocations, bUsePurityExclusion);
 		
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
@@ -65,13 +69,14 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 /// we can't spawn pure nodes, e.g. grasslands where it becomes too easy
 /// @param NotProcessedResourceNodes List of resource node structs to process
 /// @param NotProcessedPossibleLocations and the list of locations
-void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations)
+void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations, bool bUsePurityExclusion)
 {
     ProcessedResourceNodes.Empty();
 
 	// TODO this should be set by configuration instead of hardcoded
-	static const TArray<FName> NonGroupableResources = { "Desc_SAM_C", "Desc_OreBauxite_C", "Desc_OreUranium_C", "Desc_RP_Thorium_C" };
-    
+	// static const TArray<FName> NonGroupableResources = { "Desc_SAM_C", "Desc_OreBauxite_C", "Desc_OreUranium_C", "Desc_RP_Thorium_C" };
+	static const TArray<FName> NonGroupableResources = UResourceRouletteUtility::GetNonGroupableResources();
+	
     while (NotProcessedResourceNodes.Num() > 0 && NotProcessedPossibleLocations.Num() > 0)
     {
         if (NotProcessedResourceNodes.Num() == 0 || NotProcessedPossibleLocations.Num() == 0)
@@ -111,7 +116,7 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
         }
 
     	// Assign the first location to the node and add it to ProcessedResourceNodes, also assign purity stuff
-    	EResourcePurity AssignedPurity = AssignPurity(CurrentNodeToProcess.ResourceClass, GroupedLocations[0]);
+    	EResourcePurity AssignedPurity = AssignPurity(CurrentNodeToProcess.ResourceClass, GroupedLocations[0], bUsePurityExclusion);
     	if (AssignedPurity == EResourcePurity::RP_MAX)
     	{
     		// If no purity is available, skip this node ... something is wrong
@@ -139,7 +144,7 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 						// (CurrentNodeToProcess.Purity == EResourcePurity::RP_Inpure && Node.Purity != EResourcePurity::RP_Pure) ||
 						// (CurrentNodeToProcess.Purity == EResourcePurity::RP_Normal && Node.Purity == EResourcePurity::RP_Inpure) ||
 						// (CurrentNodeToProcess.Purity == Node.Purity);
-    				AssignedPurity = AssignPurity(CurrentNodeToProcess.ResourceClass, GroupedLocations[i]);
+    				AssignedPurity = AssignPurity(CurrentNodeToProcess.ResourceClass, GroupedLocations[i], bUsePurityExclusion);
     				bool bPurityCheckPassed = PurityManager->IsPurityAvailable(CurrentNodeToProcess.ResourceClass, AssignedPurity);
 
     				if (bPurityCheckPassed)
@@ -194,19 +199,22 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 	for (int32 i = 0; i < NotProcessedSinglePossibleLocations.Num() && i < NotProcessedSingleResourceNodes.Num(); ++i)
 	{
 		NotProcessedSingleResourceNodes[i].Location = NotProcessedSinglePossibleLocations[i];
-		NotProcessedSingleResourceNodes[i].Purity = AssignPurity(NotProcessedSingleResourceNodes[i].ResourceClass, NotProcessedSingleResourceNodes[i].Location);
+		NotProcessedSingleResourceNodes[i].Purity = AssignPurity(NotProcessedSingleResourceNodes[i].ResourceClass, NotProcessedSingleResourceNodes[i].Location, bUsePurityExclusion);
 		PurityManager->DecrementAvailablePurities(NotProcessedSingleResourceNodes[i].ResourceClass, NotProcessedSingleResourceNodes[i].Purity);
 		ProcessedResourceNodes.Add(NotProcessedSingleResourceNodes[i]);
 	}
 }
 
-EResourcePurity UResourceNodeRandomizer::AssignPurity(const FName ResourceClass, const FVector& NodeLocation) const
+EResourcePurity UResourceNodeRandomizer::AssignPurity(const FName ResourceClass, const FVector& NodeLocation, bool bUsePurityExclusion) const
 {
 	// Check if the location falls within a purity zone
-	EResourcePurity ZonePurity = PurityManager->GetZonePurity(NodeLocation);
-	if (ZonePurity != EResourcePurity::RP_MAX && PurityManager->IsPurityAvailable(ResourceClass, ZonePurity))
+	if (bUsePurityExclusion)
 	{
-		return ZonePurity;
+		EResourcePurity ZonePurity = PurityManager->GetZonePurity(NodeLocation);
+		if (ZonePurity != EResourcePurity::RP_MAX && PurityManager->IsPurityAvailable(ResourceClass, ZonePurity))
+		{
+			return ZonePurity;
+		}
 	}
 
 	// Fallback to general purity assignment if no zone or unavailable zone purity

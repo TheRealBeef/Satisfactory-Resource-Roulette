@@ -9,6 +9,7 @@
 #include "Components/DecalComponent.h"
 #include "Equipment/FGResourceScanner.h"
 #include "Kismet/GameplayStatics.h"
+#include "ResourceRouletteConfigStruct.h"
 
 
 /// We may want to add a check rather than just all 4 managers, as we aren't explicity removing these on reload
@@ -41,22 +42,27 @@ void UResourceRouletteManager::Update(UWorld* World, AResourceRouletteSeedManage
 
 
 /// Manager method to collect resources list and purity list. Should be run 
-/// only on initialization, although we may need to run it twice if some things
-/// are initialized slowly
+/// only on initialization
 /// @param World World Context
 void UResourceRouletteManager::ScanWorldResourceNodes(const UWorld* World)
 {
 	if (!World)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage("ScanWorldResourceNodes aborted: World is invalid.",
-		                                              ELogLevel::Error);
+													  ELogLevel::Error);
 		return;
 	}
 	if (!ResourceCollectionManager || !ResourcePurityManager)
 	{
 		return;
 	}
+	FResourceRouletteConfigStruct config = FResourceRouletteConfigStruct::GetActiveConfig(ResourceCollectionManager);
+	UResourceRouletteUtility::UpdateValidResourceClasses(config);
+	UResourceRouletteUtility::UpdateNonGroupableResources(config);
+	
+	
 	InitMeshesToDestroy();
+		
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
 		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && !bIsResourcesScanned)
@@ -69,6 +75,7 @@ void UResourceRouletteManager::ScanWorldResourceNodes(const UWorld* World)
 			{
 				AFGResourceNode* ResourceNode = *It;
 
+				
 				if (!UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
 				{
 					continue;
@@ -112,6 +119,12 @@ void UResourceRouletteManager::RandomizeWorldResourceNodes(UWorld* World)
 		                                              ELogLevel::Error);
 		return;
 	}
+
+	
+	// Set Grouping Radius
+	FResourceRouletteConfigStruct config = FResourceRouletteConfigStruct::GetActiveConfig(ResourceCollectionManager);
+	ResourceNodeRandomizer->SetGroupingRadius(config.GroupingOptions.GroupRadius);
+	
 	if (const AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
 		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned())
@@ -309,25 +322,6 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 		}
 	}
 	
-	// Bruh this is way too slow
-	// for (TObjectIterator<UStaticMeshComponent> It; It; ++It)
-	// {
-	// 	UStaticMeshComponent* StaticMeshComponent = *It;
-	// 	if (StaticMeshComponent && StaticMeshComponent->GetWorld() == World && !StaticMeshComponent->ComponentTags.
-	// 		Contains(ResourceRouletteTag))
-	// 	{
-	// 		if (const UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh())
-	// 		{
-	// 			if (MeshesToDestroy.Contains(StaticMesh->GetFName()))
-	// 			{
-	// 				StaticMeshComponent->SetActive(false);
-	// 				StaticMeshComponent->SetVisibility(false);
-	// 				StaticMeshComponent->DestroyComponent();
-	// 			}
-	// 		}
-	// 	}
-	// }
-
 	// double MeshDestroyingTime = (FPlatformTime::Seconds() - StartMeshDestroyingTime)*1000.0f;
 	// double TotalTime = (FPlatformTime::Seconds() - StartTotalTime)*1000.0f;
 	// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Node updating took: %f ms"), NodeUpdatingTime), ELogLevel::Debug);

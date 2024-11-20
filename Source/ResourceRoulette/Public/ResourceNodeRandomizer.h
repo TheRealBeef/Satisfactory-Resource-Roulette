@@ -27,8 +27,9 @@ private:
 	void GroupLocations(const FVector& StartingLocation, const TArray<FVector>& Locations,
 												 TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
 												 TSet<int32>& VisitedIndexes);
-	void ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations);
-	EResourcePurity AssignPurity(FName ResourceClass, const FVector& NodeLocation) const;
+	void ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations, bool
+	                  bUsePurityExclusion);
+	EResourcePurity AssignPurity(FName ResourceClass, const FVector& NodeLocation, bool bUsePurityExclusion) const;
 
 	UPROPERTY()	UResourceCollectionManager* CollectionManager;
 	UPROPERTY()	UResourcePurityManager* PurityManager;
