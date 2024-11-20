@@ -7,6 +7,7 @@
 #include "ResourceNodeRandomizer.h"
 #include "ResourceRouletteSubsystem.h"
 #include "Components/DecalComponent.h"
+#include "Equipment/FGResourceScanner.h"
 #include "Kismet/GameplayStatics.h"
 
 
@@ -150,6 +151,15 @@ void UResourceRouletteManager::SpawnWorldResourceNodes(UWorld* World, bool IsFro
 			const TArray<FResourceNodeData>& ProcessedNodes = ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes();
 			UResourceRouletteUtility::AssociateExtractorsWithNodes(World, ProcessedNodes, ResourceNodeSpawner->GetSpawnedResourceNodes());
 		}
+
+		AFGResourceScanner* ResourceScanner = Cast<AFGResourceScanner>(
+	UGameplayStatics::GetActorOfClass(World, AFGResourceScanner::StaticClass()));
+		if (ResourceScanner)
+		{
+			ResourceScanner->GenerateNodeClusters();
+			FResourceRouletteUtilityLog::Get().LogMessage("Node Clusters generated successfully.", ELogLevel::Debug);
+		}
+		
 		bIsResourcesSpawned = true;
 		FResourceRouletteUtilityLog::Get().LogMessage("Resources Spawning completed successfully.", ELogLevel::Debug);
 	}

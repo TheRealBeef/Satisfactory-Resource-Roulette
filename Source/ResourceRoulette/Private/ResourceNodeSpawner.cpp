@@ -51,6 +51,7 @@ void UResourceNodeSpawner::SpawnWorldResources(UWorld* World, UResourceNodeRando
 	{
 		ProcessedNodes = NodeRandomizer->GetProcessedNodes();
 	}
+	
 	const UResourceRouletteAssets* ResourceAssets = NewObject<UResourceRouletteAssets>();
 	
 	FResourceRouletteUtilityLog::Get().LogMessage(
@@ -174,11 +175,9 @@ bool UResourceNodeSpawner::SpawnResourceNodeDecal(UWorld* World, FResourceNodeDa
 	if (!ResourceNode->mResourceNodeRepresentation)
 	{
 		ResourceNode->mResourceNodeRepresentation = NewObject<UFGResourceNodeRepresentation>(ResourceNode);
-		ResourceNode->mResourceNodeRepresentation->SetupResourceNodeRepresentation(ResourceNode);
-		
 	}
-	ResourceNode->UpdateNodeRepresentation();
-	
+	ResourceNode->mResourceNodeRepresentation->SetupResourceNodeRepresentation(ResourceNode);
+		
 	if (!ResourceNode->mBoxComponent)
 	{
 		ResourceNode->mBoxComponent = NewObject<UBoxComponent>(ResourceNode);
@@ -190,6 +189,8 @@ bool UResourceNodeSpawner::SpawnResourceNodeDecal(UWorld* World, FResourceNodeDa
 	ResourceNode->mBoxComponent->SetGenerateOverlapEvents(true);
 	ResourceNode->mBoxComponent->SetWorldScale3D(FVector(30.0f, 30.0f, 2.0f));
 
+
+	ResourceNode->UpdateNodeRepresentation();	
 	
     // Register the node in the tracking system
     NodeData.NodeGUID = FGuid::NewGuid();
@@ -296,14 +297,10 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 	if (!ResourceNode->mResourceNodeRepresentation)
 	{
 		ResourceNode->mResourceNodeRepresentation = NewObject<UFGResourceNodeRepresentation>(ResourceNode);
-		ResourceNode->mResourceNodeRepresentation->SetupResourceNodeRepresentation(ResourceNode);
 	}
+	ResourceNode->mResourceNodeRepresentation->SetupResourceNodeRepresentation(ResourceNode);
 	
 	ResourceNode->UpdateMeshFromDescriptor();
-	ResourceNode->UpdateNodeRepresentation();
-	
-	ResourceNode->InitRadioactivity();
-	ResourceNode->UpdateRadioactivity();
 	
 	UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(ResourceNode);
 	if (!MeshComponent)
@@ -349,6 +346,11 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 
 	// FResourceRouletteUtilityLog::Get().LogMessage(
 	//     FString::Printf(TEXT("Spawned Mesh for Node at location: %s"), *NodeData.Location.ToString()), ELogLevel::Debug);
+
+	ResourceNode->InitRadioactivity();
+	ResourceNode->UpdateRadioactivity();
+
+	ResourceNode->UpdateNodeRepresentation();
 
 	NodeData.NodeGUID = FGuid::NewGuid();
 	SpawnedResourceNodes.Add(NodeData.NodeGUID, ResourceNode);
