@@ -9,6 +9,7 @@
 #include "Components/DecalComponent.h"
 #include "Equipment/FGResourceScanner.h"
 #include "Kismet/GameplayStatics.h"
+#include "ResourceRouletteCompatibilityManager.h"
 #include "ResourceRouletteConfigStruct.h"
 
 
@@ -40,11 +41,10 @@ void UResourceRouletteManager::Update(UWorld* World, AResourceRouletteSeedManage
 	UpdateWorldResourceNodes(World);
 }
 
-
 /// Manager method to collect resources list and purity list. Should be run 
 /// only on initialization
 /// @param World World Context
-void UResourceRouletteManager::ScanWorldResourceNodes(const UWorld* World)
+void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World)
 {
 	if (!World)
 	{
@@ -59,10 +59,19 @@ void UResourceRouletteManager::ScanWorldResourceNodes(const UWorld* World)
 	FResourceRouletteConfigStruct config = FResourceRouletteConfigStruct::GetActiveConfig(ResourceCollectionManager);
 	UResourceRouletteUtility::UpdateValidResourceClasses(config);
 	UResourceRouletteUtility::UpdateNonGroupableResources(config);
+
+	// Here we can add classnames/tags for mods we want to have compatible with our mod
+	ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Base_ResourceNode_C", "BuildableResourceNodeReduxObject");
+	ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Build_Base_ResNode_C", "BuildableResourceNodeReduxObject");
+	ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildableHologram", "FGBuildableHologram");
+	ResourceRouletteCompatibilityManager::RegisterResourceClass("BuildEffect_Default_C", "BuildEffect_Default_C");
 	
+	ResourceRouletteCompatibilityManager::TagExistingActors(World);
+	ResourceRouletteCompatibilityManager::SetupActorSpawnCallback(World);
 	
 	InitMeshesToDestroy();
-		
+	const TArray<FName>& RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
+
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
 		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && !bIsResourcesScanned)
@@ -75,6 +84,20 @@ void UResourceRouletteManager::ScanWorldResourceNodes(const UWorld* World)
 			{
 				AFGResourceNode* ResourceNode = *It;
 
+				// Skip any of the compatibility tagged ones
+				bool bIsTagged = false;
+				for (const FName& RegisteredTag : RegisteredTags)
+				{
+					if (ResourceNode->Tags.Contains(RegisteredTag))
+					{
+						bIsTagged = true;
+						break;
+					}
+				}
+				if (bIsTagged)
+				{
+					continue;
+				}
 				
 				if (!UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
 				{
@@ -286,12 +309,21 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 	}
 
 	TArray<UStaticMeshComponent*> ComponentsToDestroy;
+	const TSet<FName> RegisteredTags(ResourceRouletteCompatibilityManager::GetRegisteredTags());
 	
 	ParallelFor(WorldMeshComponents.Num(), [&](int32 Index)
 	{
 		UStaticMeshComponent* StaticMeshComponent = WorldMeshComponents[Index];
-		if (StaticMeshComponent && !StaticMeshComponent->ComponentTags.Contains(ResourceRouletteTag))
+		if (StaticMeshComponent)
 		{
+			for (const FName& Tag : StaticMeshComponent->ComponentTags)
+			{
+				if (RegisteredTags.Contains(Tag) || Tag == ResourceRouletteTag)
+				{
+					return;
+				}
+			}
+			
 			if (const UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh())
 			{
 				FName MeshPath = FName(*StaticMesh->GetPathName());

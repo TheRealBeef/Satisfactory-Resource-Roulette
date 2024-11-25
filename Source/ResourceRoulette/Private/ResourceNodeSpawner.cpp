@@ -344,6 +344,22 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 		MeshComponent->SetWorldRotation(FRotator::ZeroRotator);
 	}
 
+	UBoxComponent* CollisionBox = NewObject<UBoxComponent>(ResourceNode);
+	if (CollisionBox)
+	{
+		FVector MeshExtent = ResourceNode->GetRootComponent()->Bounds.BoxExtent;
+		FVector MeshBoundsCenter = (ResourceNode->GetRootComponent()->Bounds.Origin - ResourceNode->GetActorLocation())/2.0f;
+		CollisionBox->SetRelativeLocation(MeshBoundsCenter);
+		FVector CollisionBoxExtent = MeshExtent;
+		CollisionBox->SetBoxExtent(CollisionBoxExtent / (ResourceNode->GetActorScale3D() * 1.35));
+
+		CollisionBox->SetCollisionProfileName("Resource");
+		CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		CollisionBox->SetGenerateOverlapEvents(true);
+		CollisionBox->SetupAttachment(ResourceNode->GetRootComponent());
+		CollisionBox->RegisterComponent();
+	}
+	
 	// FResourceRouletteUtilityLog::Get().LogMessage(
 	//     FString::Printf(TEXT("Spawned Mesh for Node at location: %s"), *NodeData.Location.ToString()), ELogLevel::Debug);
 

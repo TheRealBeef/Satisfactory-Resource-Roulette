@@ -16,7 +16,7 @@ class RESOURCEROULETTE_API UResourceRouletteManager : public UObject
 public:
 	UResourceRouletteManager();
 	void Update(UWorld* World, AResourceRouletteSeedManager* InSeedManager);
-	void ScanWorldResourceNodes(const UWorld* World);
+	void ScanWorldResourceNodes(UWorld* World);
 	void RandomizeWorldResourceNodes(UWorld* World);
 	void SpawnWorldResourceNodes(UWorld* World, bool IsFromSaved);
 	void UpdateWorldResourceNodes(const UWorld* World) const;

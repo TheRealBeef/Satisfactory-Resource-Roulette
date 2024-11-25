@@ -7,6 +7,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Resources/FGResourceDescriptor.h"
 #include "Components/DecalComponent.h"
+#include "ResourceRouletteCompatibilityManager.h"
 #include "Kismet/GameplayStatics.h"
 
 UResourceCollectionManager::UResourceCollectionManager()
@@ -27,12 +28,28 @@ void UResourceCollectionManager::SetCollectedResourcesNodes(const TArray<FResour
 void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 {
 	CollectedResourceNodes.Empty();
+	const TArray<FName>& RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
+
 	// FResourceRouletteUtilityLog::Get().LogMessage(TEXT("CollectWorldResources called"), ELogLevel::Debug);
 
 	for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 	{
 		AFGResourceNode* ResourceNode = *It;
 
+		bool bIsTagged = false;
+		for (const FName& RegisteredTag : RegisteredTags)
+		{
+			if (ResourceNode->Tags.Contains(RegisteredTag))
+			{
+				bIsTagged = true;
+				break;
+			}
+		}
+		if (bIsTagged)
+		{
+			continue;
+		}
+		
 		if (!UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
 		{
 			continue;
