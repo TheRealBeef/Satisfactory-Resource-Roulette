@@ -61,10 +61,17 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World)
 	UResourceRouletteUtility::UpdateNonGroupableResources(config);
 
 	// Here we can add classnames/tags for mods we want to have compatible with our mod
+	// Buildable Resource Nodes Redux
 	ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Base_ResourceNode_C", "BuildableResourceNodeReduxObject");
 	ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Build_Base_ResNode_C", "BuildableResourceNodeReduxObject");
-	ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildableHologram", "FGBuildableHologram");
 	ResourceRouletteCompatibilityManager::RegisterResourceClass("BuildEffect_Default_C", "BuildEffect_Default_C");
+
+	// Resource Node Creator
+	ResourceRouletteCompatibilityManager::RegisterResourceClass("BP_ResourceNode_C", "FGBuildable");
+	ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildable", "FGBuildable");
+
+	// General Holograms
+	ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildableHologram", "FGBuildable");
 	
 	ResourceRouletteCompatibilityManager::TagExistingActors(World);
 	ResourceRouletteCompatibilityManager::SetupActorSpawnCallback(World);
@@ -338,6 +345,22 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 	
 	for (UStaticMeshComponent* StaticMeshComponent : ComponentsToDestroy)
 	{
+		// if (AActor* OwnerActor = StaticMeshComponent->GetAttachmentRootActor())
+		// {
+		// 	FString ClassHierarchy = OwnerActor->GetClass()->GetName();
+		// 	UClass* CurrentClass = OwnerActor->GetClass()->GetSuperClass();
+		// 	while (CurrentClass)
+		// 	{
+		// 		ClassHierarchy += FString(TEXT(" -> ")) + CurrentClass->GetName();
+		// 		CurrentClass = CurrentClass->GetSuperClass();
+		// 	}
+		// 	FResourceRouletteUtilityLog::Get().LogMessage(
+		// 		FString::Printf(
+		// 			TEXT("Destroying mesh %s, class heirarchy is: %s"), 
+		// 			*StaticMeshComponent->GetName(), *ClassHierarchy),
+		// 		ELogLevel::Debug
+		// 	);
+		// }
 		StaticMeshComponent->SetActive(false);
 		StaticMeshComponent->SetVisibility(false);
 		StaticMeshComponent->DestroyComponent();
