@@ -15,9 +15,9 @@ class RESOURCEROULETTE_API UResourceRouletteManager : public UObject
 
 public:
 	UResourceRouletteManager();
-	void Update(UWorld* World, AResourceRouletteSeedManager* InSeedManager);
-	void ScanWorldResourceNodes(UWorld* World);
-	void RandomizeWorldResourceNodes(UWorld* World);
+	void Update(UWorld* World, AResourceRouletteSeedManager* InSeedManager, bool bReroll=false);
+	void ScanWorldResourceNodes(UWorld* World, bool bReroll=false);
+	void RandomizeWorldResourceNodes(UWorld* World, bool bReroll=false);
 	void SpawnWorldResourceNodes(UWorld* World, bool IsFromSaved);
 	void UpdateWorldResourceNodes(const UWorld* World) const;
 	void InitMeshesToDestroy();
@@ -29,13 +29,14 @@ private:
 	bool bIsResourcesScanned;
 	bool bIsResourcesRandomized;
 	bool bIsResourcesSpawned;
-
+	
 	UPROPERTY()	AResourceRouletteSeedManager* SeedManager;
 	UPROPERTY()	UResourceCollectionManager* ResourceCollectionManager;
 	UPROPERTY()	UResourcePurityManager* ResourcePurityManager;
 	UPROPERTY()	UResourceNodeRandomizer* ResourceNodeRandomizer;
 	UPROPERTY()	UResourceNodeSpawner* ResourceNodeSpawner;
 	UPROPERTY()	TArray<FResourceNodeData> NotProcessedResourceNodes;
+	UPROPERTY() TSet<FName> RegisteredTags;
 	UPROPERTY()	TSet<FName> MeshesToDestroy;
 };
 

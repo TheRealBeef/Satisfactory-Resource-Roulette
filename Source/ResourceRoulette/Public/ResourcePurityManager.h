@@ -33,6 +33,7 @@ public:
 	bool IsPurityAvailable(const FName ResourceClass, const EResourcePurity Purity) const;
 	void DecrementAvailablePurities(const FName ResourceClass, const EResourcePurity Purity);
 	void CollectWorldPurities(const UWorld* World);
+	void CollectOriginalPurities(const TArray<FResourceNodeData>& ResourceNodes);
 
 private:
 		void LogFoundPurities();

@@ -9,8 +9,8 @@
 #include "HAL/PlatformFilemanager.h"
 #include "Resources/FGResourceNode.h"
 #include "FGPortableMiner.h"
-#include "ResourceRouletteConfigStruct.h"
 #include "Buildables/FGBuildableResourceExtractor.h"
+#include "SessionSettings/SessionSettingsManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogResourceRoulette, Log, All);
 
@@ -169,8 +169,8 @@ TArray<FName> UResourceRouletteUtility::ValidResourceClasses;
 TArray<FName> UResourceRouletteUtility::NonGroupableResources;
 
 /// Updates the ValidResourceClasses array with config options
-/// @param Config The config struct holding our options
-void UResourceRouletteUtility::UpdateValidResourceClasses(const FResourceRouletteConfigStruct& Config) {
+/// @param SessionSettings Session Settings reference
+void UResourceRouletteUtility::UpdateValidResourceClasses(const USessionSettingsManager* SessionSettings) {
 	ValidResourceClasses = {
 		// "Desc_NitrogenGas_C", // This is a fracking node, it's on TODO
 		// "Desc_Geyser_C", // We'll come back to geysers later TODO
@@ -194,29 +194,33 @@ void UResourceRouletteUtility::UpdateValidResourceClasses(const FResourceRoulett
 		// "Desc_WaterTurbineNode_C", // We shouldn't randomize this
 		"Desc_RP_Thorium_C"
 	};
-
-	if (!Config.RandomizationOptions.RandSAM) {
+	
+	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandSAM"))
+		{
 		ValidResourceClasses.Remove("Desc_SAM_C");
 	}
 
-	if (!Config.RandomizationOptions.RandUranium) {
+	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandUranium"))
+		{
 		ValidResourceClasses.Remove("Desc_OreUranium_C");
 	}
 
-	if (!Config.RandomizationOptions.RandBauxite) {
+	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandBauxite"))
+		{
 		ValidResourceClasses.Remove("Desc_OreBauxite_C");
 	}
 
-	if (!Config.RandomizationOptions.RandCrude) {
+	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandCrude"))
+		{
 		ValidResourceClasses.Remove("Desc_LiquidOil_C");
 	}
-	if (!Config.RandomizationOptions.RandFFDirt)
+	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandFFDirt"))
 	{
 		NonGroupableResources.Remove("Desc_FF_Dirt_Fertilized_C");
 		NonGroupableResources.Remove("Desc_FF_Dirt_C");
 		NonGroupableResources.Remove("Desc_FF_Dirt_Wet_C");
 	}
-	if (!Config.RandomizationOptions.RandRPThorium)
+	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandRPThorium"))
 	{
 		NonGroupableResources.Remove("Desc_RP_Thorium_C");
 	}
@@ -231,8 +235,8 @@ const TArray<FName>& UResourceRouletteUtility::GetValidResourceClasses()
 
 /// Updates the NonGroupableResources array with config options
 /// This is somewhat inverse logic to the randomization options
-/// @param Config The config struct holding our options
-void UResourceRouletteUtility::UpdateNonGroupableResources(const FResourceRouletteConfigStruct& Config) {
+/// @param SessionSettings Session Settings reference
+void UResourceRouletteUtility::UpdateNonGroupableResources(const USessionSettingsManager* SessionSettings) {
 	NonGroupableResources = {
 		"Desc_LiquidOil_C",
 		"Desc_SAM_C",
@@ -243,30 +247,30 @@ void UResourceRouletteUtility::UpdateNonGroupableResources(const FResourceRoulet
 		"Desc_FF_Dirt_Wet_C",
 		"Desc_RP_Thorium_C"
 	};
-
-	if (Config.GroupingOptions.GroupSAM)
+	
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupSAM"))
 	{
 		NonGroupableResources.Remove("Desc_SAM_C");
 	}
-	if (Config.GroupingOptions.GroupUranium)
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupUranium"))
 	{
 		NonGroupableResources.Remove("Desc_OreUranium_C");
 	}
-	if (Config.GroupingOptions.GroupBauxite)
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupBauxite"))
 	{
 		NonGroupableResources.Remove("Desc_OreBauxite_C");
 	}
-	if (Config.GroupingOptions.GroupCrude)
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupCrude"))
 	{
 		NonGroupableResources.Remove("Desc_LiquidOil_C");
 	}
-	if (Config.GroupingOptions.GroupFFDirt)
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupFFDirt"))
 	{
 		NonGroupableResources.Remove("Desc_FF_Dirt_Fertilized_C");
 		NonGroupableResources.Remove("Desc_FF_Dirt_C");
 		NonGroupableResources.Remove("Desc_FF_Dirt_Wet_C");
 	}
-	if (Config.GroupingOptions.GroupRPThorium)
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupRPThorium"))
 	{
 		NonGroupableResources.Remove("Desc_RP_Thorium_C");
 	}

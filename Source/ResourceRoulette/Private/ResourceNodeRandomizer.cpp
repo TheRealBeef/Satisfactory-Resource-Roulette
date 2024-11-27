@@ -4,6 +4,7 @@
 #include "ResourcePurityManager.h"
 #include "ResourceRouletteSeedManager.h"
 #include "ResourceRouletteSubsystem.h"
+#include "SessionSettings/SessionSettingsManager.h"
 
 UResourceNodeRandomizer::UResourceNodeRandomizer()
 {
@@ -11,7 +12,6 @@ UResourceNodeRandomizer::UResourceNodeRandomizer()
 	PurityManager = nullptr;
 	SeedManager = nullptr;
 	GroupingRadius = 4000; //7000 is equivalent to 70m
-	SingleNodeCounter = 0;
 }
 
 /// Parent method to randomize World resources
@@ -32,10 +32,13 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 		return;
 	}
 
+	NotProcessedSinglePossibleLocations.Empty();
+	NotProcessedSingleResourceNodes.Empty();
+	
 	// Get config options
-    FResourceRouletteConfigStruct Config = FResourceRouletteConfigStruct::GetActiveConfig(CollectionManager);
-    bool bUsePurityExclusion = Config.RandomizationOptions.UsePurityExclusion;
-
+	USessionSettingsManager* SessionSettings = GetWorld()->GetSubsystem<USessionSettingsManager>();
+    bool bUsePurityExclusion = SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.UsePurityExclusion");
+	bool bUseFullRandomization = SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.UseFullRandomization");
 	const int32 Seed = SeedManager->GetGlobalSeed();
 	TArray<FResourceNodeData> NotProcessedResourceNodes = CollectionManager->GetCollectedResourceNodes();
 	FilterNodes(NotProcessedResourceNodes);
@@ -49,7 +52,7 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 	NotProcessedPossibleLocations.Sort([](const FVector& A, const FVector& B) { return A.X < B.X; });
 	PseudorandomizeLocations(NotProcessedPossibleLocations, Seed);
 	
-	ProcessNodes(NotProcessedResourceNodes, NotProcessedPossibleLocations, bUsePurityExclusion);
+	ProcessNodes(NotProcessedResourceNodes, NotProcessedPossibleLocations, bUsePurityExclusion, bUseFullRandomization);
 		
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
@@ -69,13 +72,49 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 /// we can't spawn pure nodes, e.g. grasslands where it becomes too easy
 /// @param NotProcessedResourceNodes List of resource node structs to process
 /// @param NotProcessedPossibleLocations and the list of locations
-void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations, bool bUsePurityExclusion)
+/// @param bUseFullRandomization
+void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations, bool
+                                           bUsePurityExclusion, bool bUseFullRandomization)
 {
     ProcessedResourceNodes.Empty();
-
-	// TODO this should be set by configuration instead of hardcoded
-	// static const TArray<FName> NonGroupableResources = { "Desc_SAM_C", "Desc_OreBauxite_C", "Desc_OreUranium_C", "Desc_RP_Thorium_C" };
+	
+	// Get list of resources we shouldn't group
 	static const TArray<FName> NonGroupableResources = UResourceRouletteUtility::GetNonGroupableResources();
+
+	// Full Randomization - mostly ignores everything and just splatters nodes down like jackson pollock
+	if (bUseFullRandomization)
+	{
+	    TArray<FName> ValidResourceClasses = UResourceRouletteUtility::GetValidResourceClasses();
+	    if (ValidResourceClasses.Num() == 0 || NotProcessedPossibleLocations.Num() == 0)
+	    {
+	        FResourceRouletteUtilityLog::Get().LogMessage("No valid resources or locations available for full randomization", ELogLevel::Error);
+	        return;
+	    }
+	    FRandomStream RandomStream(SeedManager->GetGlobalSeed());
+	    for (FVector Location : NotProcessedPossibleLocations)
+	    {
+	        FName RandomResourceClass = ValidResourceClasses[RandomStream.RandRange(0, ValidResourceClasses.Num() - 1)];
+	        FResourceNodeData* SourceNode = NotProcessedResourceNodes.FindByPredicate([RandomResourceClass](const FResourceNodeData& Node)
+	        {
+	            return Node.ResourceClass == RandomResourceClass;
+	        });
+
+	        if (!SourceNode)
+	        {
+	            FResourceRouletteUtilityLog::Get().LogMessage(
+	                FString::Printf(TEXT("No source node available for resource class: %s"), *RandomResourceClass.ToString()),
+	                ELogLevel::Warning);
+	            continue;
+	        }
+	        FResourceNodeData NewNode = *SourceNode;
+	        NewNode.Location = Location;
+	        EResourcePurity RandomPurity = static_cast<EResourcePurity>(RandomStream.RandRange(0, static_cast<int32>(EResourcePurity::RP_MAX) - 1));
+	        NewNode.Purity = RandomPurity;
+	        ProcessedResourceNodes.Add(NewNode);
+	    }
+
+	    return;
+	}
 	
     while (NotProcessedResourceNodes.Num() > 0 && NotProcessedPossibleLocations.Num() > 0)
     {

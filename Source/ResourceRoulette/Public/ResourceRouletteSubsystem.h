@@ -21,6 +21,9 @@ public:
 	void InitializeResourceRoulette();
 
 	UFUNCTION(BlueprintCallable)
+	void RerollResources();
+	
+	UFUNCTION(BlueprintCallable)
 	void UpdateResourceRoulette() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -28,10 +31,12 @@ public:
 
 	bool GetSessionAlreadySpawned() const { return SessionAlreadySpawned; }
 	TArray<FResourceNodeData>& GetSessionRandomizedResourceNodes() { return SessionRandomizedResourceNodes; }
+	TArray<FResourceNodeData>& GetOriginalResourceNodes() { return OriginalResourceNodes; }
 
 	void SetSessionAlreadySpawned(bool InSessionAlreadySpawned);
 	void SetSessionRandomizedResourceNodes(const TArray<FResourceNodeData>& InSessionRandomizedResourceNodes);
-
+	void SetOriginalResourceNodes(const TArray<FResourceNodeData>& InOriginalResourceNodes);
+	
 	virtual bool ShouldSave_Implementation() const override { return true; }
 	virtual void PreSaveGame_Implementation(int32 SaveVersion, int32 GameVersion) override;
 	virtual void PostLoadGame_Implementation(int32 SaveVersion, int32 GameVersion) override;
@@ -54,8 +59,14 @@ private:
 	UPROPERTY(SaveGame)
 	TArray<FResourceNodeData> SavedRandomizedResourceNodes;
 
+	UPROPERTY(SaveGame)
+	TArray<FResourceNodeData> SavedOriginalResourceNodes;
+
 	UPROPERTY()
 	TArray<FResourceNodeData> SessionRandomizedResourceNodes;
+
+	UPROPERTY()
+	TArray<FResourceNodeData> OriginalResourceNodes;
 
 	bool bIsInitialized = false;
 

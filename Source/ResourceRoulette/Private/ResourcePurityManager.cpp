@@ -117,6 +117,29 @@ void UResourcePurityManager::CollectWorldPurities(const UWorld* World)
 	RemainingPurityCounts = FoundPurityCounts;
 }
 
+/// Collects purity data from array of FResourceNodeData instead of from the world
+/// @param ResourceNodes Array of FResourceNodeData
+void UResourcePurityManager::CollectOriginalPurities(const TArray<FResourceNodeData>& ResourceNodes)
+{
+	FoundPurityCounts.Empty();
+	RemainingPurityCounts.Empty();
+
+	for (const FResourceNodeData& NodeData : ResourceNodes)
+	{
+		if (!IsValidPurityEnum(NodeData.Purity))
+		{
+			continue;
+		}
+		const FName& ResourceClassName = NodeData.ResourceClass;
+		AddFoundPurity(ResourceClassName, NodeData.Purity);
+	}
+
+	RemainingPurityCounts = FoundPurityCounts;
+	
+	// LogFoundPurities();
+}
+
+
 /// Logs the purity values
 void UResourcePurityManager::LogFoundPurities()
 {

@@ -1,14 +1,13 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "ResourceRouletteConfigStruct.h"
 #include "Containers/Array.h"
 #include "Containers/Map.h"
 #include "Resources/FGResourceNode.h"
 #include "Buildables/FGBuildableResourceExtractor.h"
 #include "Misc/OutputDeviceFile.h"
+#include "SessionSettings/SessionSettingsManager.h"
 #include "ResourceRouletteUtility.generated.h"
-
 
 // To avoid circles in dependencies do forward delcaration
 struct FResourceNodeData;
@@ -79,10 +78,10 @@ public:
 	static bool IsValidResourceClass(const FName& ResourceClassName);
 	static bool IsValidInfiniteResourceNode(const AFGResourceNode* ResourceNode);
 	
-	static void UpdateValidResourceClasses(const FResourceRouletteConfigStruct& Config);
+	static void UpdateValidResourceClasses(const USessionSettingsManager* SessionSettings);
 	static const TArray<FName>& GetValidResourceClasses();
 	
-	static void UpdateNonGroupableResources(const FResourceRouletteConfigStruct& Config);
+	static void UpdateNonGroupableResources(const USessionSettingsManager* SessionSettings);
 	static const TArray<FName>& GetNonGroupableResources();
 
 	static void LogAllResourceNodes(const UWorld* World);

@@ -7,7 +7,7 @@
 
 TMap<FName, UClass*> ResourceRouletteCompatibilityManager::CachedResourceClasses;
 TMap<FName, FName> ResourceRouletteCompatibilityManager::CompatResourceClassTags;
-TArray<FName> ResourceRouletteCompatibilityManager::RegisteredTags;
+TSet<FName> ResourceRouletteCompatibilityManager::RegisteredTags;
 FDelegateHandle ResourceRouletteCompatibilityManager::SpawnCallbackHandle;
 
 /// Adds resource class and tag for compatibility with other mods
@@ -16,11 +16,7 @@ FDelegateHandle ResourceRouletteCompatibilityManager::SpawnCallbackHandle;
 void ResourceRouletteCompatibilityManager::RegisterResourceClass(const FName& ClassName, const FName& Tag)
 {
     CompatResourceClassTags.Add(ClassName, Tag);
-
-    if (!RegisteredTags.Contains(Tag))
-    {
-        RegisteredTags.Add(Tag);
-    }
+    RegisteredTags.Add(Tag);
 }
 
 /// Tag the existing actors/meshes in the world - to be used on init
@@ -175,7 +171,7 @@ bool ResourceRouletteCompatibilityManager::IsCompatibilityClass(AActor* Actor, F
 }
 
 
-const TArray<FName>& ResourceRouletteCompatibilityManager::GetRegisteredTags()
+TSet<FName>& ResourceRouletteCompatibilityManager::GetRegisteredTags()
 {
     return RegisteredTags;
 }

@@ -28,8 +28,8 @@ void UResourceCollectionManager::SetCollectedResourcesNodes(const TArray<FResour
 void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 {
 	CollectedResourceNodes.Empty();
-	const TArray<FName>& RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
-
+	TSet<FName> RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
+	
 	// FResourceRouletteUtilityLog::Get().LogMessage(TEXT("CollectWorldResources called"), ELogLevel::Debug);
 
 	for (TActorIterator<AFGResourceNode> It(World); It; ++It)

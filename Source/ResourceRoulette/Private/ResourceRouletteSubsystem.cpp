@@ -14,6 +14,7 @@ AResourceRouletteSubsystem::AResourceRouletteSubsystem()
 	SavedSeed = -1;
 	SavedAlreadySpawned = false;
 	SavedRandomizedResourceNodes.Empty();
+	SavedOriginalResourceNodes.Empty();
 	SessionSeed = -1;
 	SessionAlreadySpawned = false;
 	SessionRandomizedResourceNodes.Empty();
@@ -51,6 +52,14 @@ void AResourceRouletteSubsystem::InitializeResourceRoulette()
 	                                       UpdateInterval, true);
 	FResourceRouletteUtilityLog::Get().LogMessage("Resource Roulette initialized successfully.", ELogLevel::Debug);
 	UpdateResourceRoulette();
+}
+
+/// Called to re-roll Resources
+void AResourceRouletteSubsystem::RerollResources()
+{
+	SessionSeed = -1;
+	InitializeWorldSeedManager(GetWorld());
+	ResourceRouletteManager->Update(GetWorld(), SeedManager, true);
 }
 
 /// Checks if seed manager is created, if not it spawns a new one
@@ -120,6 +129,7 @@ void AResourceRouletteSubsystem::PreSaveGame_Implementation(int32 SaveVersion, i
 	SavedSeed = SessionSeed;
 	SavedAlreadySpawned = SessionAlreadySpawned;
 	SavedRandomizedResourceNodes = SessionRandomizedResourceNodes;
+	SavedOriginalResourceNodes = OriginalResourceNodes;
 }
 
 /// Loads our data from the savefile
@@ -145,6 +155,12 @@ void AResourceRouletteSubsystem::PostLoadGame_Implementation(int32 SaveVersion, 
 	{
 		SessionRandomizedResourceNodes = SavedRandomizedResourceNodes;
 		FResourceRouletteUtilityLog::Get().LogMessage(
+			TEXT("PostLoadGame: Previously Randomized List of Nodes loaded"), ELogLevel::Debug);
+	}
+	if (SavedOriginalResourceNodes.Num() > 0)
+	{
+		OriginalResourceNodes = SavedOriginalResourceNodes;
+		FResourceRouletteUtilityLog::Get().LogMessage(
 			TEXT("PostLoadGame: Original List of Nodes loaded"), ELogLevel::Debug);
 	}
 }
@@ -158,4 +174,9 @@ void AResourceRouletteSubsystem::SetSessionRandomizedResourceNodes(
 	const TArray<FResourceNodeData>& InSessionRandomizedResourceNodes)
 {
 	SessionRandomizedResourceNodes = InSessionRandomizedResourceNodes;
+}
+
+void AResourceRouletteSubsystem::SetOriginalResourceNodes(const TArray<FResourceNodeData>& InOriginalResourceNodes)
+{
+	OriginalResourceNodes = InOriginalResourceNodes;
 }

@@ -30,7 +30,7 @@ int32 AResourceRouletteSeedManager::GenerateSeed()
 {
 	const int32 GeneratedSeed = FMath::Rand() * FMath::Rand();
 	FResourceRouletteUtilityLog::Get().LogMessage(
-		FString::Printf(TEXT("Reinitialized Seed: %d in OnWorldInitialized"), GeneratedSeed), ELogLevel::Debug);
+		FString::Printf(TEXT("Initialized Seed: %d"), GeneratedSeed), ELogLevel::Debug);
 	return GeneratedSeed;
 }
 

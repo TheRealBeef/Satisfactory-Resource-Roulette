@@ -10,7 +10,7 @@
 #include "Equipment/FGResourceScanner.h"
 #include "Kismet/GameplayStatics.h"
 #include "ResourceRouletteCompatibilityManager.h"
-#include "ResourceRouletteConfigStruct.h"
+#include "SessionSettings/SessionSettingsManager.h"
 
 
 /// We may want to add a check rather than just all 4 managers, as we aren't explicity removing these on reload
@@ -31,20 +31,29 @@ UResourceRouletteManager::UResourceRouletteManager()
 /// Update method that's called to process the world
 /// @param World - World context
 /// @param InSeedManager - Seed manager instance so we can propogate these values
-void UResourceRouletteManager::Update(UWorld* World, AResourceRouletteSeedManager* InSeedManager)
+/// @param bReroll - Called when re-rolling resources
+void UResourceRouletteManager::Update(UWorld* World, AResourceRouletteSeedManager* InSeedManager, bool bReroll)
 {
 	const AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World);
+	if (bReroll)
+	{
+		bIsResourcesScanned = false;
+		bIsResourcesRandomized = false;
+		bIsResourcesSpawned = false;
+	}
 	SeedManager = InSeedManager;
-	ScanWorldResourceNodes(World);
-	RandomizeWorldResourceNodes(World);
-	SpawnWorldResourceNodes(World, ResourceRouletteSubsystem->GetSessionAlreadySpawned());
+	ScanWorldResourceNodes(World, bReroll);
+	RandomizeWorldResourceNodes(World, bReroll);
+	// Only pass true as parameter if not reroll & we didn't already have saved, otherwise pass false
+	SpawnWorldResourceNodes(World, (!bReroll && ResourceRouletteSubsystem->GetSessionAlreadySpawned()));
 	UpdateWorldResourceNodes(World);
 }
 
 /// Manager method to collect resources list and purity list. Should be run 
 /// only on initialization
 /// @param World World Context
-void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World)
+/// @param bReroll
+void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bReroll)
 {
 	if (!World)
 	{
@@ -56,37 +65,43 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World)
 	{
 		return;
 	}
-	FResourceRouletteConfigStruct config = FResourceRouletteConfigStruct::GetActiveConfig(ResourceCollectionManager);
-	UResourceRouletteUtility::UpdateValidResourceClasses(config);
-	UResourceRouletteUtility::UpdateNonGroupableResources(config);
+	if (!bIsResourcesScanned)
+	{
+		USessionSettingsManager* SessionSettings = GetWorld()->GetSubsystem<USessionSettingsManager>();
+		UResourceRouletteUtility::UpdateValidResourceClasses(SessionSettings);
+		UResourceRouletteUtility::UpdateNonGroupableResources(SessionSettings);
+	}
+	// Don't repeat this on reroll
+	if (!bReroll && !bIsResourcesScanned)
+	{
+		InitMeshesToDestroy();
+        	
+		// Here we can add classnames/tags for mods we want to have compatible with our mod
+		// Buildable Resource Nodes Redux
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Base_ResourceNode_C", "BuildableResourceNodeReduxObject");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Build_Base_ResNode_C", "BuildableResourceNodeReduxObject");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("BuildEffect_Default_C", "BuildEffect_Default_C");
 
-	// Here we can add classnames/tags for mods we want to have compatible with our mod
-	// Buildable Resource Nodes Redux
-	ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Base_ResourceNode_C", "BuildableResourceNodeReduxObject");
-	ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Build_Base_ResNode_C", "BuildableResourceNodeReduxObject");
-	ResourceRouletteCompatibilityManager::RegisterResourceClass("BuildEffect_Default_C", "BuildEffect_Default_C");
+		// Resource Node Creator
+		// ResourceRouletteCompatibilityManager::RegisterResourceClass("BP_ResourceNode_C", "FGBuildable");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildable", "FGBuildable");
 
-	// Resource Node Creator
-	ResourceRouletteCompatibilityManager::RegisterResourceClass("BP_ResourceNode_C", "FGBuildable");
-	ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildable", "FGBuildable");
+		// General Holograms
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildableHologram", "FGBuildable");
 
-	// General Holograms
-	ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildableHologram", "FGBuildable");
+		RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
+		ResourceRouletteCompatibilityManager::TagExistingActors(World);
+		ResourceRouletteCompatibilityManager::SetupActorSpawnCallback(World);
+	}
 	
-	ResourceRouletteCompatibilityManager::TagExistingActors(World);
-	ResourceRouletteCompatibilityManager::SetupActorSpawnCallback(World);
-	
-	InitMeshesToDestroy();
-	const TArray<FName>& RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
-
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
-		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && !bIsResourcesScanned)
+		// If we have previously randomized nodes in this save and now we should re-roll
+		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && bReroll && !bIsResourcesScanned)
 		{
-			ResourceCollectionManager->SetCollectedResourcesNodes(ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes());
-			// TODO Add purity manager stuff too
-
-			// Destroy the vanilla actors!
+			ResourceCollectionManager->SetCollectedResourcesNodes(ResourceRouletteSubsystem->GetOriginalResourceNodes());
+			ResourcePurityManager->CollectOriginalPurities(ResourceRouletteSubsystem->GetOriginalResourceNodes());
+			// Destroy both vanilla actors and our own nodes!
 			for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 			{
 				AFGResourceNode* ResourceNode = *It;
@@ -124,24 +139,73 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World)
 				ResourceNode->Destroy();
 			}
 			bIsResourcesScanned = true;
+			FResourceRouletteUtilityLog::Get().LogMessage("Resource Scan from Reroll.", ELogLevel::Debug);
 		}
-	}
-	if (!bIsResourcesScanned)
-	{
-		ResourcePurityManager->CollectWorldPurities(World);
-		ResourceCollectionManager->CollectWorldResources(World);
-		bIsResourcesScanned = true;
-		FResourceRouletteUtilityLog::Get().LogMessage("Resource Scan completed successfully.", ELogLevel::Debug);
-	}
-	else
-	{
-		// FResourceRouletteUtilityLog::Get().LogMessage("New Resource scan not needed.", ELogLevel::Debug);
+		// If we have previously randomized nodes in this save
+		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && !bReroll && !bIsResourcesScanned)
+		{
+			ResourceCollectionManager->SetCollectedResourcesNodes(ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes());
+			// TODO Add purity manager stuff too
+
+			// Destroy the actors!
+			for (TActorIterator<AFGResourceNode> It(World); It; ++It)
+			{
+				AFGResourceNode* ResourceNode = *It;
+
+				// Skip any of the compatibility tagged ones
+				bool bIsTagged = false;
+				for (const FName& RegisteredTag : RegisteredTags)
+				{
+					if (ResourceNode->Tags.Contains(RegisteredTag))
+					{
+						bIsTagged = true;
+						break;
+					}
+				}
+				if (bIsTagged)
+				{
+					continue;
+				}
+				
+				if (!UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
+				{
+					continue;
+				}
+				TArray<UStaticMeshComponent*> MeshComponents;
+				ResourceNode->GetComponents(MeshComponents);
+				for (UStaticMeshComponent* MeshComponent : MeshComponents)
+				{
+					if (MeshComponent)
+					{
+						MeshComponent->SetVisibility(false);
+						MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+						MeshComponent->DestroyComponent();
+					}
+				}
+				ResourceNode->Destroy();
+			}
+			bIsResourcesScanned = true;
+			FResourceRouletteUtilityLog::Get().LogMessage("Resource Scan from Save.", ELogLevel::Debug);
+		}
+		// If we haven't previously randomized nodes in this save
+		if (!bIsResourcesScanned)
+		{
+			ResourcePurityManager->CollectWorldPurities(World);
+			ResourceCollectionManager->CollectWorldResources(World);
+			ResourceRouletteSubsystem->SetOriginalResourceNodes(ResourceCollectionManager->GetCollectedResourceNodes());
+			bIsResourcesScanned = true;
+			FResourceRouletteUtilityLog::Get().LogMessage("Resource Scan completed successfully.", ELogLevel::Debug);
+		}
+		else
+		{
+			// FResourceRouletteUtilityLog::Get().LogMessage("New Resource scan not needed.", ELogLevel::Debug);
+		}
 	}
 }
 
 /// Manager method to randomize world resources by updating the struct that holds all world resources
 /// @param World 
-void UResourceRouletteManager::RandomizeWorldResourceNodes(UWorld* World)
+void UResourceRouletteManager::RandomizeWorldResourceNodes(UWorld* World, bool bReroll)
 {
 	if (!World)
 	{
@@ -152,12 +216,12 @@ void UResourceRouletteManager::RandomizeWorldResourceNodes(UWorld* World)
 
 	
 	// Set Grouping Radius
-	FResourceRouletteConfigStruct config = FResourceRouletteConfigStruct::GetActiveConfig(ResourceCollectionManager);
-	ResourceNodeRandomizer->SetGroupingRadius(config.GroupingOptions.GroupRadius);
+	USessionSettingsManager* SessionSettings = GetWorld()->GetSubsystem<USessionSettingsManager>();
+	ResourceNodeRandomizer->SetGroupingRadius(SessionSettings->GetFloatOptionValue("ResourceRoulette.GroupOpt.GroupRadius"));
 	
 	if (const AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
-		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned())
+		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && !bReroll)
 		{
 			bIsResourcesRandomized = true;
 		}
@@ -316,8 +380,6 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 	}
 
 	TArray<UStaticMeshComponent*> ComponentsToDestroy;
-	const TSet<FName> RegisteredTags(ResourceRouletteCompatibilityManager::GetRegisteredTags());
-	
 	ParallelFor(WorldMeshComponents.Num(), [&](int32 Index)
 	{
 		UStaticMeshComponent* StaticMeshComponent = WorldMeshComponents[Index];

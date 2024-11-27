@@ -11,7 +11,7 @@ public:
 	static void TagExistingActors(UWorld* World);
 	static void SetupActorSpawnCallback(UWorld* World);
 
-	static const TArray<FName>& GetRegisteredTags();
+	static TSet<FName>& GetRegisteredTags();
 
 	static bool IsCompatibilityClass(AActor* Actor, FName& OutTag);
 private:
@@ -19,6 +19,6 @@ private:
 
 	static TMap<FName, UClass*> CachedResourceClasses;
 	static TMap<FName, FName> CompatResourceClassTags;
-	static TArray<FName> RegisteredTags;
+	static TSet<FName> RegisteredTags;
 	static FDelegateHandle SpawnCallbackHandle;
 };

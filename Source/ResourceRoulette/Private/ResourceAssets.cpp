@@ -60,15 +60,15 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 		"Desc_Sulfur_C", FResourceRouletteAssetSolid(
 			"/Game/FactoryGame/Resource/RawResources/Nodes/SulfurResource_01.SulfurResource_01",
 			{"/Game/FactoryGame/Resource/RawResources/Sulfur/Material/Resource_Sulfur_Inst.Resource_Sulfur_Inst"},
-			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 1.5f))
+			FVector(0.0f, 0.0f, -10.0f),
+			FVector(1.0f, 1.0f, 1.0f))
 	},
 	{
 		"Desc_Coal_C", FResourceRouletteAssetSolid(
 			"/Game/FactoryGame/Resource/RawResources/Nodes/CoalResource_01.CoalResource_01",
 			{"/Game/FactoryGame/Resource/RawResources/Coal/Material/CoalResource_01_Inst.CoalResource_01_Inst"},
-			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 1.5f))
+			FVector(0.0f, 0.0f, -10.0f),
+			FVector(1.0f, 1.0f, 1.0f))
 	},
 	{
 		"Desc_Stone_C", FResourceRouletteAssetSolid(
@@ -76,8 +76,8 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 			{
 				"/Game/FactoryGame/Resource/RawResources/Stone/Material/MI_ResourceNode_Stone_Blocks.MI_ResourceNode_Stone_Blocks"
 			},
-			FVector(0.0f, 0.0f, 0.0f),
-			FVector(2.4f, 2.4f, 2.8f))
+			FVector(0.0f, 0.0f, -5.0f),
+			FVector(2.4f, 2.4f, 2.0f))
 	},
 	{
 		"Desc_SAM_C", FResourceRouletteAssetSolid(
@@ -101,24 +101,24 @@ const TMap<FName, FResourceRouletteAssetSolid> UResourceRouletteAssets::SolidRes
 		"Desc_FF_Dirt_Fertilized_C", FResourceRouletteAssetSolid{
 			"/FicsitFarming/World/ResourceNodes/Dirt/Mesh/SM_DirtNode.SM_DirtNode",
 			{"/FicsitFarming/World/ResourceNodes/Dirt/Material/MI_Dirt_Wet.MI_Dirt_Wet"},
-			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 0.75f)
+			FVector(0.0f, 0.0f, 45.0f),
+			FVector(1.0f, 1.0f, 0.5f)
 		}
 	},
 	{
 		"Desc_FF_Dirt_C", FResourceRouletteAssetSolid{
 			"/FicsitFarming/World/ResourceNodes/Dirt/Mesh/SM_DirtNode.SM_DirtNode",
 			{"/FicsitFarming/World/ResourceNodes/Dirt/Material/MI_Dirt_Normal.MI_Dirt_Normal"},
-			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 0.75f)
+			FVector(0.0f, 0.0f, 45.0f),
+			FVector(1.0f, 1.0f, 0.5f)
 		}
 	},
 	{
 		"Desc_FF_Dirt_Wet_C", FResourceRouletteAssetSolid{
 			"/FicsitFarming/World/ResourceNodes/Dirt/Mesh/SM_DirtNode.SM_DirtNode",
 			{"/FicsitFarming/World/ResourceNodes/Dirt/Material/MI_Dirt_Fert.MI_Dirt_Fert"},
-			FVector(0.0f, 0.0f, 0.0f),
-			FVector(1.0f, 1.0f, 0.75f)
+			FVector(0.0f, 0.0f, 45.0f),
+			FVector(1.0f, 1.0f, 0.5f)
 		}
 	}
 
