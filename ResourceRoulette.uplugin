@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.1.0",
 	"FriendlyName": "ResourceRoulette",
-	"Description": "Randomizes Resource Nodes",
+	"Description": "Randomizes Resource Nodes. Options in Savegame Settings.",
 	"Category": "Modding",
 	"CreatedBy": "TheRealBeef",
 	"CreatedByURL": "",
