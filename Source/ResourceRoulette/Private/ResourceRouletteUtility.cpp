@@ -425,7 +425,7 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 	}
 
 	
-	if (HitPoints.Num() < NumPoints-5)
+	if (HitPoints.Num() < NumPoints-20)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage("Insufficient hit points for calculating node location and rotation.", ELogLevel::Warning);
 		return false;
