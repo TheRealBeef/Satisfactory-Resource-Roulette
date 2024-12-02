@@ -41,6 +41,8 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 - May have conflicts with some resource mods, please notify me if you find anything and I will add compatibility.
 
 ## Changelog
+- Version 1.1.2
+  - Increase missed raycast tolerance to ensure nodes under blocking objects are settled.
 - Version 1.1.1
   - Added update resources button to session settings to refresh and re-settle resources, fixing the weird offsets in existing saves.
   - Fix unintended nondeterminisic behavior when re-rolling nodes. This means there is about a 6% chance that single nodes with no neighbors will change type if they were set by re-rolling.
