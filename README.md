@@ -17,8 +17,9 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 
 ## Configuration Options
 ### Seed Options (Not visible in New Game Savegame Settings, only in-game)
-- Click to Update Nodes - Doesn't alter the seed value, but simple refreshes existing nodes and causes them to re-settle into the surrounding terrain.
-  - This should be used in an existing save in order to ensure miners and nodes are properly centered, but as it has a 6% chance of causing non-grouped nodes to change their type, this is optional to not potentially break existing saves.
+- Click to Update Nodes - Doesn't alter the seed value, but simply refreshes existing nodes and causes them to re-settle into the surrounding terrain.
+  - This should be used in an existing save in order to ensure miners and nodes are properly centered.
+   - If the player previously re-rolled nodes in that save, there is an ~6% chance of causing lone nodes note in a group to change their type due to an error in my re-rolling logic. This is why I've made this update button optional.
 - Click To Reroll Nodes - Be careful, clicking this menu option rerolls immediately.
   - Resources are randomized according to the options chosen in the rest of options below
   - Resource randomization values are saved to your savegame so if you *do* accidentally click this, load a previous save to revert.
