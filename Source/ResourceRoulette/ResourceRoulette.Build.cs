@@ -19,7 +19,8 @@ public class ResourceRoulette : ModuleRules
             "DeveloperSettings", "PhysicsCore", "InputCore",
             "AssetRegistry", "RenderCore", "RHI",
             "SlateCore", "Slate", "UMG", "GameplayTags",
-            "DummyHeaders", "FactoryGame", "SML", "Json"
+            "DummyHeaders", "FactoryGame", "SML", "Json",
+            "Landscape"
 
 		});
 		

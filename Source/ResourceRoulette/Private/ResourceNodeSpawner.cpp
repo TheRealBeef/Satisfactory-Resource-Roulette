@@ -22,7 +22,7 @@ UResourceNodeSpawner::UResourceNodeSpawner()
 }
 
 /// Parent method to Spawn world resources
-/// TODO Currently only spawns solid resources, will add additional resources soon(TM)
+/// TODO: Currently only spawns solid resources, will add additional resources soon(TM)
 /// @param World World Context
 /// @param InNodeRandomizer The node randomizer instance so we can grab nodes from it
 /// @param IsFromSaved If we have already randomized nodes, we should load from save instead
@@ -224,7 +224,7 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 		return false;
 	}
 
-	// For now only Solid Nodes TODO Add other node types
+	// For now only Solid and decal Nodes TODO: Add other node types
 	const FName ResourceClassName = NodeData.ResourceClass;
 	const FString MeshPath = ResourceAssets->GetSolidMesh(ResourceClassName);
 	TArray<FString> MaterialPaths = ResourceAssets->GetSolidMaterial(ResourceClassName);
@@ -262,20 +262,11 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 			return false;
 		}
 	}
-	
+
+	// Spawn the Resource Node
 	UClass* Classname = FindObject<UClass>(ANY_PACKAGE, *NodeData.Classname);
-	// TODO - Probably we should do something about the rotation
-
 	AFGResourceNode* ResourceNode;
-	if (NodeData.IsRayCasted)
-	{
-		ResourceNode = World->SpawnActor<AFGResourceNode>(Classname, NodeData.Location,NodeData.Rotation);
-	}
-	else
-	{
-
-		ResourceNode = World->SpawnActor<AFGResourceNode>(Classname, NodeData.Location,FRotator::ZeroRotator);
-	}
+	ResourceNode = World->SpawnActor<AFGResourceNode>(Classname, NodeData.Location,FRotator::ZeroRotator);
 	if (!ResourceNode)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage(
@@ -283,10 +274,6 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 			ELogLevel::Warning);
 		return false;
 	}
-	
-	// FResourceRouletteUtilityLog::Get().LogMessage(
-	//     FString::Printf(TEXT("Spawned Resource Node at location: %s"), *NodeData.Location.ToString()), ELogLevel::Debug);
-
 	UClass* ResourceClass = FindObject<UClass>(ANY_PACKAGE, *NodeData.ResourceClass.ToString());
 	ResourceNode->InitResource(ResourceClass, NodeData.Amount, NodeData.Purity);
 	ResourceNode->SetActorScale3D(NodeData.Scale);
@@ -299,9 +286,18 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 		ResourceNode->mResourceNodeRepresentation = NewObject<UFGResourceNodeRepresentation>(ResourceNode);
 	}
 	ResourceNode->mResourceNodeRepresentation->SetupResourceNodeRepresentation(ResourceNode);
-	
 	ResourceNode->UpdateMeshFromDescriptor();
+
+	// Set up the USceneComponent as root component
+	USceneComponent* Root = NewObject<USceneComponent>(ResourceNode);
+	ResourceNode->SetRootComponent(Root);
+	Root->RegisterComponent();
+	Root->SetRelativeRotation(FRotator::ZeroRotator,false,nullptr,ETeleportType::TeleportPhysics);
+	Root->SetRelativeLocation(FVector::ZeroVector,false,nullptr,ETeleportType::TeleportPhysics);
+	Root->SetWorldLocation(NodeData.Location);
+	Root->SetWorldRotation(FRotator::ZeroRotator);
 	
+	// Set up the Mesh
 	UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(ResourceNode);
 	if (!MeshComponent)
 	{
@@ -311,7 +307,9 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 			ELogLevel::Warning);
 		return false;
 	}
-
+	
+	MeshComponent->RegisterComponent();
+	MeshComponent->SetupAttachment(Root);
 	MeshComponent->SetCollisionProfileName("ResourceMesh");
 	MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	MeshComponent->SetCollisionObjectType(ECC_WorldStatic);
@@ -322,19 +320,15 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 	MeshComponent->SetStaticMesh(Mesh);
 	MeshComponent->SetVisibility(true);
 	MeshComponent->ComponentTags.Add(ResourceRouletteTag);
-
+		
 	for (int32 i = 0; i < Materials.Num(); ++i)
 	{
 		MeshComponent->SetMaterial(i, Materials[i]);
 	}
-
-	ResourceNode->SetRootComponent(MeshComponent);
-	MeshComponent->RegisterComponent();
-
-	FVector CorrectedLocation = NodeData.Location + NodeData.Offset;
-	MeshComponent->SetWorldLocation(CorrectedLocation);
-	// TODO resolve the rotation stuff, maybe it's better to go back to actor and raycast and set up "nice" node locations?
-	MeshComponent->SetWorldScale3D(NodeData.Scale);
+	MeshComponent->SetRelativeScale3D(NodeData.Scale);
+	MeshComponent->SetRelativeRotation(FRotator::ZeroRotator,false,nullptr,ETeleportType::TeleportPhysics);
+	MeshComponent->SetRelativeLocation(NodeData.Offset,false,nullptr,ETeleportType::TeleportPhysics);
+	MeshComponent->SetWorldLocation(NodeData.Location+NodeData.Offset);
 	if (NodeData.IsRayCasted)
 	{
 		MeshComponent->SetWorldRotation(NodeData.Rotation);
@@ -343,26 +337,34 @@ bool UResourceNodeSpawner::SpawnResourceNodeSolid(UWorld* World, FResourceNodeDa
 	{
 		MeshComponent->SetWorldRotation(FRotator::ZeroRotator);
 	}
-
-	UBoxComponent* CollisionBox = NewObject<UBoxComponent>(ResourceNode);
-	if (CollisionBox)
-	{
-		FVector MeshExtent = ResourceNode->GetRootComponent()->Bounds.BoxExtent;
-		FVector MeshBoundsCenter = (ResourceNode->GetRootComponent()->Bounds.Origin - ResourceNode->GetActorLocation())/2.0f;
-		CollisionBox->SetRelativeLocation(MeshBoundsCenter);
-		FVector CollisionBoxExtent = MeshExtent;
-		CollisionBox->SetBoxExtent(CollisionBoxExtent / (ResourceNode->GetActorScale3D() * 1.35));
-
-		CollisionBox->SetCollisionProfileName("Resource");
-		CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-		CollisionBox->SetGenerateOverlapEvents(true);
-		CollisionBox->SetupAttachment(ResourceNode->GetRootComponent());
-		CollisionBox->RegisterComponent();
-	}
 	
-	// FResourceRouletteUtilityLog::Get().LogMessage(
-	//     FString::Printf(TEXT("Spawned Mesh for Node at location: %s"), *NodeData.Location.ToString()), ELogLevel::Debug);
+	// Set up the Collision box
+	UBoxComponent* CollisionBox = NewObject<UBoxComponent>(ResourceNode);
+	CollisionBox->RegisterComponent();
+	CollisionBox->SetupAttachment(Root);
+	FVector MeshExtent = MeshComponent->Bounds.BoxExtent;
+	FVector CollisionBoxExtent = MeshExtent;
+	CollisionBox->SetBoxExtent(CollisionBoxExtent / (ResourceNode->GetActorScale3D() * 1.35));	
+	CollisionBox->SetCollisionProfileName("Resource");
+	CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CollisionBox->SetGenerateOverlapEvents(true);
+	CollisionBox->SetRelativeLocation(FVector::ZeroVector,false,nullptr,ETeleportType::TeleportPhysics);
+	CollisionBox->SetWorldLocation(NodeData.Location);
+	if (NodeData.IsRayCasted)
+	{
+		CollisionBox->SetWorldRotation(NodeData.Rotation);
+	}
+	else
+	{
+		CollisionBox->SetWorldRotation(FRotator::ZeroRotator);
+	}
 
+	// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Actor Spawned at World Location: %s"), *ResourceNode->GetActorLocation().ToString()),ELogLevel::Debug);
+	// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("MeshComponent Relative Location: %s, Scale: %s"),*MeshComponent->GetRelativeLocation().ToString(), *MeshComponent->GetRelativeScale3D().ToString()),ELogLevel::Debug);
+	// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("MeshComponent World Location: %s"), *MeshComponent->GetComponentLocation().ToString()),ELogLevel::Debug);
+	// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("CollisionBox Relative Location: %s, Box Extent: %s"), *CollisionBox->GetRelativeLocation().ToString(), *CollisionBox->GetScaledBoxExtent().ToString()),	ELogLevel::Debug);
+	// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("CollisionBox World Location: %s"), *CollisionBox->GetComponentLocation().ToString()),ELogLevel::Debug);
+	
 	ResourceNode->InitRadioactivity();
 	ResourceNode->UpdateRadioactivity();
 

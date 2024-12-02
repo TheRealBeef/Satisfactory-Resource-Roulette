@@ -40,7 +40,7 @@ private:
 	UPROPERTY()	TSet<FName> MeshesToDestroy;
 };
 
-// I should probably fix this TODO
+// TODO: I should probably fix this
 class FResourceRouletteModule : public IModuleInterface
 {
 public:

@@ -9,7 +9,9 @@
 #include "HAL/PlatformFilemanager.h"
 #include "Resources/FGResourceNode.h"
 #include "FGPortableMiner.h"
+#include "LandscapeStreamingProxy.h"
 #include "Buildables/FGBuildableResourceExtractor.h"
+#include "Engine/StaticMeshActor.h"
 #include "SessionSettings/SessionSettingsManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogResourceRoulette, Log, All);
@@ -172,10 +174,10 @@ TArray<FName> UResourceRouletteUtility::NonGroupableResources;
 /// @param SessionSettings Session Settings reference
 void UResourceRouletteUtility::UpdateValidResourceClasses(const USessionSettingsManager* SessionSettings) {
 	ValidResourceClasses = {
-		// "Desc_NitrogenGas_C", // This is a fracking node, it's on TODO
-		// "Desc_Geyser_C", // We'll come back to geysers later TODO
+		// "Desc_NitrogenGas_C", // This is a fracking node, it's on TODO:
+		// "Desc_Geyser_C", // We'll come back to geysers later TODO:
 		"Desc_LiquidOil_C",
-		// "Desc_Water_C", // This is a fracking node, it's on TODO
+		// "Desc_Water_C", // This is a fracking node, it's on TODO:
 		"Desc_SAM_C",
 		"Desc_Stone_C",
 		"Desc_OreIron_C",
@@ -189,7 +191,7 @@ void UResourceRouletteUtility::UpdateValidResourceClasses(const USessionSettings
 		"Desc_FF_Dirt_Fertilized_C",
 		"Desc_FF_Dirt_C",
 		"Desc_FF_Dirt_Wet_C",
-		// "Desc_RP_Deanium_C", // This is a fracking node, it's on TODO
+		// "Desc_RP_Deanium_C", // This is a fracking node, it's on TODO:
 		// "Desc_RP_WaterDamNode_C", // We shouldn't randomize this
 		// "Desc_WaterTurbineNode_C", // We shouldn't randomize this
 		"Desc_RP_Thorium_C"
@@ -380,16 +382,49 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 		QueryParams.AddIgnoredComponent(ResourceNodeActor->FindComponentByClass<UStaticMeshComponent>());
 	}
 	
+	// for (const FVector& StartPoint : SamplePoints)
+	// {
+	// 	FVector EndPoint = StartPoint - FVector(0, 0, 1200);
+	// 	FHitResult Hit;
+	// 	if (World->LineTraceSingleByChannel(Hit, StartPoint, EndPoint, ECC_WorldStatic, QueryParams))
+	// 	{
+	// 		HitPoints.Add(Hit.ImpactPoint);
+	// 	}
+	// }
+
 	for (const FVector& StartPoint : SamplePoints)
 	{
 		FVector EndPoint = StartPoint - FVector(0, 0, 1200);
-		FHitResult Hit;
-		if (World->LineTraceSingleByChannel(Hit, StartPoint, EndPoint, ECC_Visibility, QueryParams))
+		TArray<FHitResult> Hits;
+		if (World->LineTraceMultiByChannel(Hits, StartPoint, EndPoint, ECC_WorldStatic, QueryParams))
 		{
-			HitPoints.Add(Hit.ImpactPoint);
+			bool bHitPointAdded = false;
+			for (const FHitResult& Hit : Hits)
+			{
+				if (bHitPointAdded) 
+				{
+					break;
+				}
+				AActor* HitActor = Hit.GetActor();
+				if (!HitActor)
+				{
+					continue;
+				}
+				if (HitActor->IsA(ALandscapeStreamingProxy::StaticClass()) || HitActor->IsA(AStaticMeshActor::StaticClass()))
+				{
+					HitPoints.Add(Hit.ImpactPoint);
+					bHitPointAdded = true;
+				}
+				// else
+				// {
+				// 	FString ClassName = HitActor->GetClass()->GetName();
+				// 	FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Ignored Hit Class: %s"), *ClassName);, ELogLevel::Warning);
+				// }
+			}
 		}
 	}
 
+	
 	if (HitPoints.Num() < NumPoints-5)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage("Insufficient hit points for calculating node location and rotation.", ELogLevel::Warning);
@@ -423,7 +458,7 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 FVector UResourceRouletteUtility::CalculateBestFitPlaneNormal(const TArray<FVector>& Points)
 {
 	const int MaxIterations = 50;  // How many iterations can we run
-	const float DistanceThreshold = 30.0f;  // How far can our point be off plane and still be "in" the plane - 30cm seems good
+	const float DistanceThreshold = 50.0f;  // How far can our point be off plane and still be "in" the plane - 30cm seems good
 	int BestInlierCount = 0;
 	FVector BestPlaneNormal = FVector::UpVector;
 

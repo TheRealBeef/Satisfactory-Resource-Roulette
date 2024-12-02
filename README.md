@@ -17,6 +17,8 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 
 ## Configuration Options
 ### Seed Options (Not visible in New Game Savegame Settings, only in-game)
+- Click to Update Nodes - Doesn't alter the seed value, but simple refreshes existing nodes and causes them to re-settle into the surrounding terrain.
+  - This should be used in an existing save in order to ensure miners and nodes are properly centered, but as it has a 6% chance of causing non-grouped nodes to change their type, this is optional to not potentially break existing saves.
 - Click To Reroll Nodes - Be careful, clicking this menu option rerolls immediately.
   - Resources are randomized according to the options chosen in the rest of options below
   - Resource randomization values are saved to your savegame so if you *do* accidentally click this, load a previous save to revert.
@@ -38,6 +40,11 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 - May have conflicts with some resource mods, please notify me if you find anything and I will add compatibility.
 
 ## Changelog
+- Version 1.1.1
+  - Added update resources button to session settings to refresh and re-settle resources, fixing the weird offsets in existing saves.
+  - Fix unintended nondeterminisic behavior when re-rolling nodes. This means there is about a 6% chance that single nodes with no neighbors will change type if they were set by re-rolling.
+  - Miners now properly snap to the center of nodes instead of offset, and should sit lower on angled nodes.
+  - Altered raycasting and settling behavior to get more consistent and proper node settling.
 - Version: 1.1.0
   - Requires a new save for proper functionality, future updates will no longer break saves
   - Moved all options to Session Settings
@@ -74,3 +81,4 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 ## Credits
 
 Much thanks to Oukibt for their direct help and the ability to analyze their Resource Node Randomizer mod to understand how to even start https://github.com/oukibt/ResourceNodeRandomizer.
+

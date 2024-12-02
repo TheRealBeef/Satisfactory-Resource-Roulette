@@ -24,6 +24,9 @@ public:
 	void RerollResources();
 	
 	UFUNCTION(BlueprintCallable)
+	void UpdateResources();
+
+	UFUNCTION(BlueprintCallable)
 	void UpdateResourceRoulette() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)

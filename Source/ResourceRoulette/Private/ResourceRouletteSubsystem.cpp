@@ -62,6 +62,12 @@ void AResourceRouletteSubsystem::RerollResources()
 	ResourceRouletteManager->Update(GetWorld(), SeedManager, true);
 }
 
+/// Called to update Resources - currently just resets positions back to original and re-lays them down
+void AResourceRouletteSubsystem::UpdateResources()
+{
+	ResourceRouletteManager->Update(GetWorld(), SeedManager, true);
+}
+
 /// Checks if seed manager is created, if not it spawns a new one
 /// Then checks if there's already a seed from save file. If there's
 /// not then SeedManager makes a new one. If there is, then we write
@@ -113,7 +119,7 @@ void AResourceRouletteSubsystem::UpdateResourceRoulette() const
 }
 
 /// On shutdown it Clears the timers.
-/// TODO - We should also clean up all the other things we were playing with
+/// TODO: - We should also clean up all the other things we were playing with
 /// @param EndPlayReason I actually have no idea what this is, but I don't think really need to use it
 void AResourceRouletteSubsystem::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
@@ -133,7 +139,6 @@ void AResourceRouletteSubsystem::PreSaveGame_Implementation(int32 SaveVersion, i
 }
 
 /// Loads our data from the savefile
-/// TODO Something is wrong with the CollectedResourceNodes...
 /// Perhaps it's better to serialize the actors instead so we don't have to respawn them?
 /// @param SaveVersion 
 /// @param GameVersion 

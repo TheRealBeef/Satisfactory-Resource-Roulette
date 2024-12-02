@@ -34,6 +34,8 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 
 	NotProcessedSinglePossibleLocations.Empty();
 	NotProcessedSingleResourceNodes.Empty();
+	// Oops, not init to zero resulting in some variance when re-rolling and init.
+	SingleNodeCounter = 0;
 	
 	// Get config options
 	USessionSettingsManager* SessionSettings = GetWorld()->GetSubsystem<USessionSettingsManager>();
@@ -68,8 +70,6 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 
 /// Processes nodes and randomize their location given an overly complex set of rules
 /// There's probably a way to simplify this and get what I want
-/// TODO need to incorporate the purity manager and add some "impure regions" where
-/// we can't spawn pure nodes, e.g. grasslands where it becomes too easy
 /// @param NotProcessedResourceNodes List of resource node structs to process
 /// @param NotProcessedPossibleLocations and the list of locations
 /// @param bUseFullRandomization
@@ -201,7 +201,7 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
     			int32 LocationIndex = GroupedLocationIndexes[i];
     			NotProcessedPossibleLocations.RemoveAt(LocationIndex);
     			
-    			// Same gross TODO stuff here as below, but ... it will work for now
+    			// Same gross TODO: stuff here as below, but ... it will work for now
     			for (int32& Index : GroupedLocationIndexes)
     			{
     				if (Index > LocationIndex && Index < NotProcessedPossibleLocations.Num()) --Index;
@@ -221,7 +221,7 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 
     		// To resolve an issue from removing this NotProcessedPossibleLocation, the disgusting way to fix it
     		// is to do this ... maybe it's better just to search and remove the location rather than this nonsense
-    		// but that's another TODO item
+    		// but that's another TODO: item
     		for (int32& Index : GroupedLocationIndexes)
     		{
     			if (Index > LocationIndex && Index < NotProcessedPossibleLocations.Num()) --Index;
@@ -293,7 +293,7 @@ void UResourceNodeRandomizer::GroupLocations(const FVector& StartingLocation, co
 	}
 }
 
-//TODO this is temporary until I implement handling geysers and purity
+//TODO: this is temporary until I implement handling geysers and purity
 void UResourceNodeRandomizer::FilterNodes(TArray<FResourceNodeData>& Nodes)
 {
 	Nodes.RemoveAll([](const FResourceNodeData& Node)

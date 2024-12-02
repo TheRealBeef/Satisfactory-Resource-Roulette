@@ -10,6 +10,7 @@
 #include "Equipment/FGResourceScanner.h"
 #include "Kismet/GameplayStatics.h"
 #include "ResourceRouletteCompatibilityManager.h"
+#include "Components/BoxComponent.h"
 #include "SessionSettings/SessionSettingsManager.h"
 
 
@@ -99,8 +100,15 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 		// If we have previously randomized nodes in this save and now we should re-roll
 		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && bReroll && !bIsResourcesScanned)
 		{
-			ResourceCollectionManager->SetCollectedResourcesNodes(ResourceRouletteSubsystem->GetOriginalResourceNodes());
-			ResourcePurityManager->CollectOriginalPurities(ResourceRouletteSubsystem->GetOriginalResourceNodes());
+			// ResourceCollectionManager->SetCollectedResourcesNodes(ResourceRouletteSubsystem->GetOriginalResourceNodes());
+			// Here reset the raycast for all the nodes before passing it, to ensure that we resettle them properly.
+			TArray<FResourceNodeData> OriginalNodes = ResourceRouletteSubsystem->GetOriginalResourceNodes();
+			for (FResourceNodeData& NodeData : OriginalNodes)
+			{
+				NodeData.IsRayCasted = false;
+			}
+			ResourceCollectionManager->SetCollectedResourcesNodes(OriginalNodes);
+			ResourcePurityManager->CollectOriginalPurities(OriginalNodes);
 			// Destroy both vanilla actors and our own nodes!
 			for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 			{
@@ -145,8 +153,6 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && !bReroll && !bIsResourcesScanned)
 		{
 			ResourceCollectionManager->SetCollectedResourcesNodes(ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes());
-			// TODO Add purity manager stuff too
-
 			// Destroy the actors!
 			for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 			{
@@ -309,7 +315,7 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 	}
 
 	// Search 250m (about 31 foundations) around player to update nodes
-	// TODO Need to test on lower graphical settings to see if this fails
+	// TODO: Need to test on lower graphical settings to see if this fails
 	// Maybe it needs to be reduced based on graphics values?
 	const float UpdateRadius = 25000.0f;
 
@@ -343,7 +349,8 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 				if (UResourceRouletteUtility::CalculateLocationAndRotationForNode(NodeData, World, ResourceNode))
 				{
 					bNodeUpdated = true;
-					ResourceNode->SetActorRotation(NodeData.Rotation, ETeleportType::TeleportPhysics);
+					// ResourceNode->SetActorLocation(NodeData.Location,false, nullptr, ETeleportType::TeleportPhysics);
+					// ResourceNode->SetActorRotation(NodeData.Rotation, ETeleportType::TeleportPhysics);
 			
 					if (UStaticMeshComponent* MeshComponent = ResourceNode->FindComponentByClass<UStaticMeshComponent>())
 					{
@@ -354,6 +361,11 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 						// MeshComponent->SetWorldLocation(NodeData.Location, false, nullptr, ETeleportType::TeleportPhysics);
 						MeshComponent->SetWorldRotation(NodeData.Rotation, false, nullptr, ETeleportType::TeleportPhysics);
 
+					}
+					if (UBoxComponent* CollisionBox = ResourceNode->FindComponentByClass<UBoxComponent>())
+					{
+						CollisionBox->SetWorldLocation(NodeData.Location, false, nullptr, ETeleportType::TeleportPhysics);
+						CollisionBox->SetWorldRotation(NodeData.Rotation, false, nullptr, ETeleportType::TeleportPhysics);
 					}
 				}
 			}
@@ -427,8 +439,7 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 		StaticMeshComponent->SetVisibility(false);
 		StaticMeshComponent->DestroyComponent();
 	}
-
-	// TODO Check to see how many elements this is so we can determine if it needs parallelized too (probably not)
+	
 	TArray<UDecalComponent*> DecalComponents;
 	for (UDecalComponent* DecalComponent : DecalComponents)
 	{

@@ -43,7 +43,7 @@ void ResourceRouletteCompatibilityManager::TagExistingActors(UWorld* World)
     }
 }
 
-/// Adds a callback for actor spawns ... TODO make this as light as possible since we're hooking into all the spawns :#
+/// Adds a callback for actor spawns ... TODO: make this as light as possible since we're hooking into all the spawns :#
 /// @param World 
 void ResourceRouletteCompatibilityManager::SetupActorSpawnCallback(UWorld* World)
 {
