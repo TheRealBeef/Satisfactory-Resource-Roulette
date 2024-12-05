@@ -68,6 +68,13 @@ void AResourceRouletteSubsystem::UpdateResources()
 	ResourceRouletteManager->Update(GetWorld(), SeedManager, true);
 }
 
+
+/// Prep the mod for removal and destroy miners on our nodes
+void AResourceRouletteSubsystem::PrepForRemoval()
+{
+	ResourceRouletteManager->PrepModForRemoval();
+}
+
 /// Checks if seed manager is created, if not it spawns a new one
 /// Then checks if there's already a seed from save file. If there's
 /// not then SeedManager makes a new one. If there is, then we write

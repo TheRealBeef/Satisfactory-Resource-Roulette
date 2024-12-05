@@ -21,6 +21,7 @@ public:
 	void SpawnWorldResourceNodes(UWorld* World, bool IsFromSaved);
 	void UpdateWorldResourceNodes(const UWorld* World) const;
 	void InitMeshesToDestroy();
+	void PrepModForRemoval();
 
 private:
 	// Used in the mesh destroying bonanza

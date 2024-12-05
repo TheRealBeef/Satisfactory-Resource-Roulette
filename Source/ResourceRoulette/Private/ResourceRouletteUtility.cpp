@@ -581,3 +581,60 @@ void UResourceRouletteUtility::AssociateExtractorsWithNodes(
         }
     }
 }
+
+/// Removes all extractors that are located on the custom nodes.
+/// @param World World Context
+/// @param ProcessedNodes List of nodes
+/// @param SpawnedResourceNodes GUID keyed pointers to the AFGResourceNodes
+void UResourceRouletteUtility::RemoveExtractors(
+    UWorld* World, 
+    const TArray<FResourceNodeData>& ProcessedNodes, 
+    const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes)
+{
+    if (!World)
+    {
+        FResourceRouletteUtilityLog::Get().LogMessage(
+            "RemoveExtractors aborted: World is invalid.", 
+            ELogLevel::Error
+        );
+        return;
+    }
+
+    //AFGBuildableResourceExtractor
+    for (TActorIterator<AFGBuildableResourceExtractor> It(World); It; ++It)
+    {
+        AFGBuildableResourceExtractor* ResourceExtractor = *It;
+        AFGResourceNode* ExtractorNode = Cast<AFGResourceNode>(ResourceExtractor->mExtractableResource);
+        if (ExtractorNode)
+        {
+            for (const auto& Pair : SpawnedResourceNodes)
+            {
+                if (Pair.Value == ExtractorNode)
+                {
+                    ResourceExtractor->Destroy();
+                    break;
+                }
+            }
+        }
+    }
+
+    // AFGPortableMiner
+    for (TActorIterator<AFGPortableMiner> It(World); It; ++It)
+    {
+        AFGPortableMiner* PortableMiner = *It;
+    	
+        AFGResourceNode* MinerNode = Cast<AFGResourceNode>(PortableMiner->mExtractResourceNode);
+        if (MinerNode)
+        {
+            for (const auto& Pair : SpawnedResourceNodes)
+            {
+                if (Pair.Value == MinerNode)
+                {
+                    PortableMiner->Destroy();
+                    break;
+                }
+            }
+        }
+    }
+}
+

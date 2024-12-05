@@ -27,6 +27,9 @@ public:
 	void UpdateResources();
 
 	UFUNCTION(BlueprintCallable)
+	void PrepForRemoval();
+
+	UFUNCTION(BlueprintCallable)
 	void UpdateResourceRoulette() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)

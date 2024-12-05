@@ -90,4 +90,5 @@ public:
 	static bool CalculateLocationAndRotationForNode(FResourceNodeData& NodeData, const UWorld* World, const AActor* ResourceNodeActor);
 
 	static void AssociateExtractorsWithNodes(UWorld* World, const TArray<FResourceNodeData>& ProcessedNodes, const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes);
+	static void RemoveExtractors(UWorld* World, const TArray<FResourceNodeData>& ProcessedNodes, const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes);
 };

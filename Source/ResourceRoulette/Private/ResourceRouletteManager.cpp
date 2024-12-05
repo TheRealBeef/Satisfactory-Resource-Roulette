@@ -481,6 +481,17 @@ void UResourceRouletteManager::InitMeshesToDestroy()
 	// }
 }
 
+/// Prep to remove the mod and destroy extractors in the world
+void UResourceRouletteManager::PrepModForRemoval()
+{
+	
+	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(GetWorld()))
+	{
+		const TArray<FResourceNodeData>& ProcessedNodes = ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes();
+		UResourceRouletteUtility::RemoveExtractors(GetWorld(), ProcessedNodes, ResourceNodeSpawner->GetSpawnedResourceNodes());
+	}
+}
+
 
 #define LOCTEXT_NAMESPACE "FResourceRouletteModule"
 
