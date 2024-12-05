@@ -17,9 +17,6 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 
 ## Configuration Options
 ### Seed Options (Not visible in New Game Savegame Settings, only in-game)
-- Click to Update Nodes - Doesn't alter the seed value, but simply refreshes existing nodes and causes them to re-settle into the surrounding terrain.
-  - This should be used in an existing save in order to ensure miners and nodes are properly centered.
-   - If the player previously re-rolled nodes in that save, there is an ~6% chance of causing lone nodes note in a group to change their type due to an error in my re-rolling logic. This is why I've made this update button optional.
 - Click To Reroll Nodes - Be careful, clicking this menu option rerolls immediately.
   - Resources are randomized according to the options chosen in the rest of options below
   - Resource randomization values are saved to your savegame so if you *do* accidentally click this, load a previous save to revert.
@@ -33,6 +30,13 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
   - Higher values result in groups having more nodes that are further apart. Very high values result in "regions" of specific resources
   - Lower values results in higher diversity and randomness among nodes.
 - Individual options to group resources that are not grouped by default (E.g. Uranium, SAM, etc)
+### Admin Options
+- Click to Update Nodes - Doesn't alter the seed value, but simply refreshes existing nodes and causes them to re-settle into the surrounding terrain.
+  - This should be used in an existing save in order to ensure miners and nodes are properly centered.
+  - If the player previously re-rolled nodes in that save, there is an ~6% chance of causing lone nodes note in a group to change their type due to an error in my re-rolling logic. This is why I've made this update button optional.
+- Click to Prep Savegame for Mod Removal
+  - If you intend to remove the mod from your savegame, click this button and then save the game to prevent CTD.
+  - Removes all vanilla extractors from the modded nodes. The vanilla game doesn't have functionality to re-assign miners if the node changes. 
 
 ## Known Bugs/Issues
 - Nodes visually shift as you get closer to them the first time, this is the result of automagically aligning them. This only occurs once per node in each save, when it is about 250m away from the player location. I'll look into smoothing this motion in the future.
@@ -40,7 +44,29 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 - Crude oil and resource node meshes have grass spawning through them sometimes, this should be able to be resolved in roadmap later on
 - May have conflicts with some resource mods, please notify me if you find anything and I will add compatibility.
 
+## How to safely remove this mod from your savegame
+This can be used if you intend to remove the mod permanently, it can also be used to update a savegame from version 1.0.x to work with the 1.1.x and later versions properly
+1. Load your Savegame with current version of Resource Roulette installed and enabled in SML
+2. With the game loaded, open the Mod Savegame Settings (accessible via the mod's settings menu in the game)
+3. At the bottom click the button labeled "Click to Prep Savegame for Mod Removal"
+4. This will remove all vanilla extractors associated with custom nodes added by Resource Roulette
+5. Save your game so the changes are also saved
+6. In your mod loader, either deactivate the Resource Roulette mod or remove it entirely from the mod loader
+7. Now, when you load the game without Resource Roulette, you will have no issues
+
+**If you only intend to remove the mod, you're done**. You will have to rebuild extractors on the vanilla nodes.
+
+If you intend to update a savegame from 1.0.x to 1.1.x and later versions, then continue below:
+
+8. Once you've loaded the game, save it again so that the new savegame now has all Resource Roulette data purged from it
+9. Re-enable Resource Roulette and re-load the savegame
+10. You've now got a savegame with Resource Roulette re-initialized
+
 ## Changelog
+- Version 1.1.3
+  - Add button under Admin Options to prep savegame for mod removal by removing extractors from modded nodes
+  - Move update button to Admin Options to make it clear it's not needed in general
+  - More reliable settings saving
 - Version 1.1.2
   - Increase missed raycast tolerance to ensure nodes under blocking objects are settled.
 - Version 1.1.1
