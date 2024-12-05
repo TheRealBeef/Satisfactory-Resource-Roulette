@@ -72,6 +72,7 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 - [X] Set up simple configuration menu options (what nodes to randomize, what nodes should allow grouping, grouping distance, and whether to use exclusion zones)
 - [X] Port mod options to Mod Savegame settings to apply per-save, and add additional menu options (max nodes per group, manual seed, and re-roll function)
 - [X] Add a full-random option that randomizes purities/resources without regard for playability (e.g. there can be a chance for all-Uranium world). (Thanks Innoro!)
+- [ ] Add a button to prep saves for removal of the mod to prevent any potential crashes (Thanks Cora74!)
 - [ ] Remove grass around meshes/decals using RVT https://dev.epicgames.com/documentation/en-us/unreal-engine/runtime-virtual-texturing-in-unreal-engine?application_version=5.0 or similar (Thanks Phenakist!)
 - [ ] Mix up Geyser purities
 - [ ] Mix up fracking nodes (same locations but change the resource type/purities)
