@@ -11,7 +11,7 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
 - Randomizes Resources in the world, and updates their visual features accordingly.
   - Includes ability to randomize all solid nodes and crude oil resources
   - Includes compatibility with modded resource nodes from Ficsit Farming and Refined Power and easy ability to add more
-- The total number of pure/normal/impure nodes in the world is identical to playing without this mod so it neither increases nor decreases availability of resources in the world, only how hard you have to work to find them
+- The total number of pure/normal/impure nodes in the world is identical to playing without this mod so it neither increases nor decreases availability of resources in the world, only how hard you have to work to find them (unless enabling Full Randomization)
 - Handles odd node locations resulting in angled resource nodes gracefully with automagically world-aligning logic
 - Configuration Options (Currently only applies to new sessions, will be addressed in future update)
 
@@ -31,9 +31,8 @@ Beef's Resource Roulette allows you to randomize the locations of resource nodes
   - Lower values results in higher diversity and randomness among nodes.
 - Individual options to group resources that are not grouped by default (E.g. Uranium, SAM, etc)
 ### Admin Options
-- Click to Update Nodes - Doesn't alter the seed value, but simply refreshes existing nodes and causes them to re-settle into the surrounding terrain.
-  - This should be used in an existing save in order to ensure miners and nodes are properly centered.
-  - If the player previously re-rolled nodes in that save, there is an ~6% chance of causing lone nodes note in a group to change their type due to an error in my re-rolling logic. This is why I've made this update button optional.
+- Click to Reset Nodes - Doesn't alter the seed value, but simply refreshes existing nodes and causes them to re-settle into the surrounding terrain.
+  - Due to bugfixes, this can alter node types and randomization settings.
 - Click to Prep Savegame for Mod Removal
   - If you intend to remove the mod from your savegame, click this button and then save the game to prevent CTD.
   - Removes all vanilla extractors from the modded nodes. The vanilla game doesn't have functionality to re-assign miners if the node changes. 
@@ -54,15 +53,19 @@ This can be used if you intend to remove the mod permanently, it can also be use
 6. In your mod loader, either deactivate the Resource Roulette mod or remove it entirely from the mod loader
 7. Now, when you load the game without Resource Roulette, you will have no issues
 
-**If you only intend to remove the mod, you're done**. You will have to rebuild extractors on the vanilla nodes.
-
-If you intend to update a savegame from 1.0.x to 1.1.x and later versions, then continue below:
-
-8. Once you've loaded the game, save it again so that the new savegame now has all Resource Roulette data purged from it
-9. Re-enable Resource Roulette and re-load the savegame
-10. You've now got a savegame with Resource Roulette re-initialized
-
 ## Changelog
+- Version 1.1.4
+  - Due to bugfixing, randomization will change slightly. However, if you are happy with the distribution you currently have, the mod will support your existing randomization as well. If you want to update to the "proper" randomization, either re-roll or click "Reset nodes" 
+  - Added custom profiling library to identify and improve performance. 
+  - Optimized code, RR loading and re-rolling actions should be about 4x faster than previous version
+  - Implemented logic for refreshing data cache on version update
+  - Updated rescanning filtering logic
+  - Introduced logic to identify and destroy "zombie" nodes that sometimes persisted even when mod was removed
+  - Added logic to try and prevent creation of zombie nodes in the first place
+  - Now destroys and manually respawns all nodes to improve handling of randomization
+  - Refactored recursive grouping method to prevent edge-case errors
+  - Fixed typo and resulting improper logic causing ignoring certain combinations of randomization settings on re-roll
+  - If RR cannot associate an extractor to a node, now associates it with a custom "Invalid" node telling you to re-build the extractor
 - Version 1.1.3
   - Add button under Admin Options to prep savegame for mod removal by removing extractors from modded nodes
   - Move update button to Admin Options to make it clear it's not needed in general

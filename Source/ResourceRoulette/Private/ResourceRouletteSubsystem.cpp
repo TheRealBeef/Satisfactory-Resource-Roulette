@@ -57,7 +57,7 @@ void AResourceRouletteSubsystem::InitializeResourceRoulette()
 	                                       UpdateInterval, true);
 	FResourceRouletteUtilityLog::Get().LogMessage("Resource Roulette initialized successfully.", ELogLevel::Debug);
 	UpdateResourceRoulette();
-	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 10000.0f);
+	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 7000.0f);
 	ResourceRouletteManager->UpdateRadarTowers();
 }
 
@@ -70,7 +70,7 @@ void AResourceRouletteSubsystem::RerollResources()
 	ResourceRouletteManager->RemoveResourceRouletteNodes();
 	InitializeWorldSeedManager(GetWorld());
 	ResourceRouletteManager->Update(GetWorld(), SeedManager, true);
-	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 10000.0f);
+	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 7000.0f);
 	ResourceRouletteManager->UpdateRadarTowers();
 }
 
@@ -80,7 +80,7 @@ void AResourceRouletteSubsystem::UpdateResources()
 	RR_PROFILE();
 	ResourceRouletteManager->RemoveResourceRouletteNodes();
 	ResourceRouletteManager->Update(GetWorld(), SeedManager, true);
-	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 10000.0f);
+	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 7000.0f);
 	ResourceRouletteManager->UpdateRadarTowers();
 }
 

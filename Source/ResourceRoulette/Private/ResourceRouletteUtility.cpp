@@ -775,10 +775,14 @@ void UResourceRouletteUtility::ScannerGenerateNodeClusters(UWorld* World, float 
 	TArray<AFGResourceNodeBase*> ResourceNodes;
 	for (TActorIterator<AFGResourceNodeBase> It(World); It; ++It)
 	{
-		AFGResourceNodeBase* Node = *It;
-		if (Node)
+		AFGResourceNodeBase* BaseNode = *It;
+		if (BaseNode)
 		{
-			ResourceNodes.Add(Node);
+			AFGResourceNode* ResourceNode = Cast<AFGResourceNode>(BaseNode);
+			if (ResourceNode && ResourceNode->GetResourceAmount() == EResourceAmount::RA_Infinite)
+			{
+				ResourceNodes.Add(BaseNode);
+			}
 		}
 	}
 

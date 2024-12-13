@@ -7,7 +7,7 @@
 // If this is 1 then we do profiling, if it's 0 then we don't do profiling      //
 // SET TO ZERO BEFORE RELEASING MOD												//
 //////////////////////////////////////////////////////////////////////////////////
-#define ENABLE_PROFILING 1
+#define ENABLE_PROFILING 0
 
 #if ENABLE_PROFILING
 #define RR_PROFILE() FResourceRouletteProfiler ScopedProfiler(TEXT(__FUNCTION__))
