@@ -3,6 +3,7 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "ResourceRouletteUtility.h"
+#include "ResourceRouletteProfiler.h"
 
 /// Setter for global seed
 /// @param NewSeed 

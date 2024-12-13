@@ -21,13 +21,14 @@ public:
 	void SetGroupingRadius(float NewRadius);
 
 private:
-	static void FilterNodes(TArray<FResourceNodeData>& Nodes);
+	static TArray<FResourceNodeData> FilterNodes(TArray<FResourceNodeData>& Nodes);
 	static void SortNodes(TArray<FResourceNodeData>& Nodes);
 	static void PseudorandomizeLocations(TArray<FVector>& Locations, int32 Seed);
 	void GroupLocations(const FVector& StartingLocation, const TArray<FVector>& Locations,
-												 TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
-												 TSet<int32>& VisitedIndexes);
-	void ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations, bool
+	                    TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
+	                    TSet<int32>& VisitedIndexes);
+	void ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes,
+	                  TArray<FVector>& NotProcessedPossibleLocations, bool
 	                  bUsePurityExclusion, bool bUseFullRandomization);
 	EResourcePurity AssignPurity(FName ResourceClass, const FVector& NodeLocation, bool bUsePurityExclusion) const;
 
@@ -35,10 +36,10 @@ private:
 	UPROPERTY()	UResourcePurityManager* PurityManager;
 	UPROPERTY()	AResourceRouletteSeedManager* SeedManager;
 	UPROPERTY()	TArray<FResourceNodeData> ProcessedResourceNodes;
-	
-	TArray<FResourceNodeData> NotProcessedSingleResourceNodes;
-		TArray<FVector> NotProcessedSinglePossibleLocations;
+	UPROPERTY()	TArray<FResourceNodeData> NotTouchedResourceNodes;
 
+	TArray<FResourceNodeData> NotProcessedSingleResourceNodes;
+	TArray<FVector> NotProcessedSinglePossibleLocations;
 	float GroupingRadius;
 	float SingleNodeSpawnChance;
 	int32 SingleNodeCounter;

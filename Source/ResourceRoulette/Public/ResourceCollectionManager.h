@@ -56,7 +56,7 @@ struct FResourceNodeData
 	UPROPERTY(SaveGame)	FString Classname;
 	UPROPERTY(SaveGame)	FVector Location = FVector::ZeroVector;
 	UPROPERTY(SaveGame)	FRotator Rotation = FRotator::ZeroRotator;
-	UPROPERTY(SaveGame) FVector Offset = FVector::ZeroVector;
+	UPROPERTY(SaveGame)	FVector Offset = FVector::ZeroVector;
 	UPROPERTY(SaveGame)	FVector Scale = FVector::OneVector;
 	UPROPERTY(SaveGame)	TEnumAsByte<EResourcePurity> Purity;
 	UPROPERTY(SaveGame)	TEnumAsByte<EResourceAmount> Amount;
@@ -87,6 +87,5 @@ public:
 
 
 private:
-	UPROPERTY()
-	TArray<FResourceNodeData> CollectedResourceNodes;
+	UPROPERTY()	TArray<FResourceNodeData> CollectedResourceNodes;
 };

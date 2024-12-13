@@ -5,6 +5,9 @@
 #include "ResourceRouletteSeedManager.h"
 #include "ResourceRouletteUtility.h"
 #include "EngineUtils.h"
+#include "Equipment/FGResourceScanner.h"
+#include "ModLoading/ModLoadingLibrary.h"
+#include "ResourceRouletteProfiler.h"
 
 /// Init the fields on construction or bad things happen
 AResourceRouletteSubsystem::AResourceRouletteSubsystem()
@@ -18,6 +21,7 @@ AResourceRouletteSubsystem::AResourceRouletteSubsystem()
 	SessionSeed = -1;
 	SessionAlreadySpawned = false;
 	SessionRandomizedResourceNodes.Empty();
+	SavedModVersion = "Unknown";
 }
 
 AResourceRouletteSubsystem* AResourceRouletteSubsystem::Get(const UObject* WorldContext)
@@ -39,6 +43,7 @@ void AResourceRouletteSubsystem::BeginPlay()
 /// Initializes subsystem, seed manager, and sets timer to call update method
 void AResourceRouletteSubsystem::InitializeResourceRoulette()
 {
+	RR_PROFILE();
 	if (!GetWorld())
 	{
 		return;
@@ -52,27 +57,39 @@ void AResourceRouletteSubsystem::InitializeResourceRoulette()
 	                                       UpdateInterval, true);
 	FResourceRouletteUtilityLog::Get().LogMessage("Resource Roulette initialized successfully.", ELogLevel::Debug);
 	UpdateResourceRoulette();
+	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 10000.0f);
+	ResourceRouletteManager->UpdateRadarTowers();
 }
 
 /// Called to re-roll Resources
 void AResourceRouletteSubsystem::RerollResources()
 {
+	RR_PROFILE();
 	SessionSeed = -1;
+	ResourceRouletteManager->RemoveExtractorsFromWorld();
+	ResourceRouletteManager->RemoveResourceRouletteNodes();
 	InitializeWorldSeedManager(GetWorld());
 	ResourceRouletteManager->Update(GetWorld(), SeedManager, true);
+	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 10000.0f);
+	ResourceRouletteManager->UpdateRadarTowers();
 }
 
 /// Called to update Resources - currently just resets positions back to original and re-lays them down
 void AResourceRouletteSubsystem::UpdateResources()
 {
+	RR_PROFILE();
+	ResourceRouletteManager->RemoveResourceRouletteNodes();
 	ResourceRouletteManager->Update(GetWorld(), SeedManager, true);
+	UResourceRouletteUtility::ScannerGenerateNodeClusters(GetWorld(), 10000.0f);
+	ResourceRouletteManager->UpdateRadarTowers();
 }
 
 
 /// Prep the mod for removal and destroy miners on our nodes
 void AResourceRouletteSubsystem::PrepForRemoval()
 {
-	ResourceRouletteManager->PrepModForRemoval();
+	RR_PROFILE();
+	ResourceRouletteManager->RemoveExtractorsFromWorld();
 }
 
 /// Checks if seed manager is created, if not it spawns a new one
@@ -143,6 +160,13 @@ void AResourceRouletteSubsystem::PreSaveGame_Implementation(int32 SaveVersion, i
 	SavedAlreadySpawned = SessionAlreadySpawned;
 	SavedRandomizedResourceNodes = SessionRandomizedResourceNodes;
 	SavedOriginalResourceNodes = OriginalResourceNodes;
+	FModInfo ModInfo;
+	UModLoadingLibrary* ModLoadingLibrary = UGameplayStatics::GetGameInstance(GetWorld())->GetSubsystem<
+		UModLoadingLibrary>();
+	if (ModLoadingLibrary->GetLoadedModInfo(TEXT("ResourceRoulette"), ModInfo))
+	{
+		SavedModVersion = ModInfo.Version.ToString();
+	}
 }
 
 /// Loads our data from the savefile
@@ -157,6 +181,32 @@ void AResourceRouletteSubsystem::PostLoadGame_Implementation(int32 SaveVersion, 
 		FResourceRouletteUtilityLog::Get().LogMessage(
 			FString::Printf(TEXT("PostLoadGame: Loaded Saved Seed: %d"), SessionSeed), ELogLevel::Debug);
 	}
+
+	FString CurrentModVersion;
+	FModInfo ModInfo;
+	UModLoadingLibrary* ModLoadingLibrary = UGameplayStatics::GetGameInstance(GetWorld())->GetSubsystem<
+		UModLoadingLibrary>();
+	if (ModLoadingLibrary->GetLoadedModInfo(TEXT("ResourceRoulette"), ModInfo))
+	{
+		CurrentModVersion = ModInfo.Version.ToString();
+	}
+
+	// If we have a different version
+	if (SavedModVersion != CurrentModVersion)
+	{
+		FResourceRouletteUtilityLog::Get().LogMessage(
+			FString::Printf(TEXT("Version change from '%s' to '%s', resetting cached data."),
+			                *SavedModVersion, *CurrentModVersion),
+			ELogLevel::Warning);
+
+		// SavedAlreadySpawned = false;
+		// SessionAlreadySpawned = false;
+		// SavedRandomizedResourceNodes.Empty();
+		// SessionRandomizedResourceNodes.Empty();
+		SavedOriginalResourceNodes.Empty();
+		OriginalResourceNodes.Empty();
+	}
+
 	if (SavedAlreadySpawned)
 	{
 		SessionAlreadySpawned = SavedAlreadySpawned;
@@ -175,6 +225,9 @@ void AResourceRouletteSubsystem::PostLoadGame_Implementation(int32 SaveVersion, 
 		FResourceRouletteUtilityLog::Get().LogMessage(
 			TEXT("PostLoadGame: Original List of Nodes loaded"), ELogLevel::Debug);
 	}
+
+	// Save the current version for future checks
+	SavedModVersion = CurrentModVersion;
 }
 
 void AResourceRouletteSubsystem::SetSessionAlreadySpawned(const bool InSessionAlreadySpawned)

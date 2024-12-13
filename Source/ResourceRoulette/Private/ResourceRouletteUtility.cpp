@@ -1,6 +1,7 @@
 ﻿#include "ResourceRouletteUtility.h"
 #include "Misc/Paths.h"
 #include "EngineUtils.h"
+#include "FGCharacterPlayer.h"
 #include "HAL/FileManager.h"
 #include "Resources/FGResourceNode.h"
 #include "HAL/IConsoleManager.h"
@@ -10,9 +11,15 @@
 #include "Resources/FGResourceNode.h"
 #include "FGPortableMiner.h"
 #include "LandscapeStreamingProxy.h"
+#include "ResourceRouletteInvalidNode.h"
+#include "ResourceRouletteProfiler.h"
 #include "Buildables/FGBuildableResourceExtractor.h"
+#include "Buildables/FGBuildableWaterPump.h"
 #include "Engine/StaticMeshActor.h"
+#include "Equipment/FGResourceScanner.h"
+#include "Kismet/GameplayStatics.h"
 #include "SessionSettings/SessionSettingsManager.h"
+#include "Async/ParallelFor.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogResourceRoulette, Log, All);
 
@@ -139,18 +146,25 @@ void UResourceRouletteUtility::InitializeLoggingModule()
 	FResourceRouletteUtilityLog::Get().LogMessage("Logging initialized", ELogLevel::Debug);
 }
 
-/// Checks to see if it's one of the resources we want to mess with
-/// @param ResourceClassName 
-/// @return 
-bool UResourceRouletteUtility::IsValidResourceClass(const FName& ResourceClassName)
+
+/// Is one of the possible valid resources
+/// @param ResourceClassName
+/// @return True if it's valid
+bool UResourceRouletteUtility::IsValidAllResourceClass(const FName& ResourceClassName)
 {
-	return !ResourceClassName.IsNone() && ValidResourceClasses.Contains(ResourceClassName);
+	return !ResourceClassName.IsNone() && AllValidResourceClasses.Contains(ResourceClassName);
 }
+
+bool UResourceRouletteUtility::IsValidFilteredResourceClass(const FName& ResourceClassName)
+{
+	return !ResourceClassName.IsNone() && FilteredValidResourceClasses.Contains(ResourceClassName);
+}
+
 
 /// Checks to see if it's valid resource class and infinite, which should filter out deposits
 /// @param ResourceNode 
 /// @return 
-bool UResourceRouletteUtility::IsValidInfiniteResourceNode(const AFGResourceNode* ResourceNode)
+bool UResourceRouletteUtility::IsValidAllInfiniteResourceNode(const AFGResourceNode* ResourceNode)
 {
 	if (!ResourceNode || ResourceNode->GetResourceAmount() != EResourceAmount::RA_Infinite)
 	{
@@ -161,19 +175,35 @@ bool UResourceRouletteUtility::IsValidInfiniteResourceNode(const AFGResourceNode
 		                                ? ResourceNode->GetResourceClass()->GetFName()
 		                                : NAME_None;
 
-	return IsValidResourceClass(ResourceClassName);
+	return IsValidAllResourceClass(ResourceClassName);
+}
+
+bool UResourceRouletteUtility::IsValidFilteredInfiniteResourceNode(const AFGResourceNode* ResourceNode)
+{
+	if (!ResourceNode || ResourceNode->GetResourceAmount() != EResourceAmount::RA_Infinite)
+	{
+		return false;
+	}
+
+	const FName ResourceClassName = ResourceNode && ResourceNode->GetResourceClass()
+		                                ? ResourceNode->GetResourceClass()->GetFName()
+		                                : NAME_None;
+
+	return IsValidFilteredResourceClass(ResourceClassName);
 }
 
 /// Must be init with UpdateValidResourceClasses
-TArray<FName> UResourceRouletteUtility::ValidResourceClasses;
+TArray<FName> UResourceRouletteUtility::AllValidResourceClasses;
+TArray<FName> UResourceRouletteUtility::FilteredValidResourceClasses;
 
 /// Must be init with UpdateNonGroupableResources
 TArray<FName> UResourceRouletteUtility::NonGroupableResources;
 
 /// Updates the ValidResourceClasses array with config options
 /// @param SessionSettings Session Settings reference
-void UResourceRouletteUtility::UpdateValidResourceClasses(const USessionSettingsManager* SessionSettings) {
-	ValidResourceClasses = {
+void UResourceRouletteUtility::UpdateValidResourceClasses(const USessionSettingsManager* SessionSettings)
+{
+	AllValidResourceClasses = {
 		// "Desc_NitrogenGas_C", // This is a fracking node, it's on TODO:
 		// "Desc_Geyser_C", // We'll come back to geysers later TODO:
 		"Desc_LiquidOil_C",
@@ -196,49 +226,69 @@ void UResourceRouletteUtility::UpdateValidResourceClasses(const USessionSettings
 		// "Desc_WaterTurbineNode_C", // We shouldn't randomize this
 		"Desc_RP_Thorium_C"
 	};
-	
+
+	FilteredValidResourceClasses = AllValidResourceClasses;
+
 	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandSAM"))
-		{
-		ValidResourceClasses.Remove("Desc_SAM_C");
+	{
+		FilteredValidResourceClasses.Remove("Desc_SAM_C");
 	}
 
 	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandUranium"))
-		{
-		ValidResourceClasses.Remove("Desc_OreUranium_C");
+	{
+		FilteredValidResourceClasses.Remove("Desc_OreUranium_C");
 	}
 
 	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandBauxite"))
-		{
-		ValidResourceClasses.Remove("Desc_OreBauxite_C");
+	{
+		FilteredValidResourceClasses.Remove("Desc_OreBauxite_C");
 	}
 
 	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandCrude"))
-		{
-		ValidResourceClasses.Remove("Desc_LiquidOil_C");
+	{
+		FilteredValidResourceClasses.Remove("Desc_LiquidOil_C");
 	}
 	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandFFDirt"))
 	{
-		NonGroupableResources.Remove("Desc_FF_Dirt_Fertilized_C");
-		NonGroupableResources.Remove("Desc_FF_Dirt_C");
-		NonGroupableResources.Remove("Desc_FF_Dirt_Wet_C");
+		FilteredValidResourceClasses.Remove("Desc_FF_Dirt_Fertilized_C");
+		FilteredValidResourceClasses.Remove("Desc_FF_Dirt_C");
+		FilteredValidResourceClasses.Remove("Desc_FF_Dirt_Wet_C");
 	}
 	if (!SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.RandRPThorium"))
 	{
-		NonGroupableResources.Remove("Desc_RP_Thorium_C");
+		FilteredValidResourceClasses.Remove("Desc_RP_Thorium_C");
 	}
+
+	// FString FilteredClassesString;
+	// for (const FName& Class : FilteredValidResourceClasses)
+	// {
+	// 	FilteredClassesString += Class.ToString() + TEXT(", ");
+	// }
+	// FResourceRouletteUtilityLog::Get().LogMessage(
+	// 	FString::Printf(TEXT("Updated FilteredValidResourceClasses: [%s]"), *FilteredClassesString),
+	// 	ELogLevel::Debug);
 }
 
-/// Returns the current ValidResourceClasses array
-/// @return ValidResoureClasses
-const TArray<FName>& UResourceRouletteUtility::GetValidResourceClasses()
+
+/// Returns the filtered valid resource classes to be used for randomization
+/// @return Filtered list of Valid Resource Classes based on settings
+const TArray<FName>& UResourceRouletteUtility::GetFilteredValidResourceClasses()
 {
-	return ValidResourceClasses;
+	return FilteredValidResourceClasses;
+}
+
+/// Returns the whole list of valid resource classes so we can collect them
+/// @return All the list of valid resource classes
+const TArray<FName>& UResourceRouletteUtility::GetAllValidResourceClasses()
+{
+	return AllValidResourceClasses;
 }
 
 /// Updates the NonGroupableResources array with config options
 /// This is somewhat inverse logic to the randomization options
 /// @param SessionSettings Session Settings reference
-void UResourceRouletteUtility::UpdateNonGroupableResources(const USessionSettingsManager* SessionSettings) {
+void UResourceRouletteUtility::UpdateNonGroupableResources(const USessionSettingsManager* SessionSettings)
+{
 	NonGroupableResources = {
 		"Desc_LiquidOil_C",
 		"Desc_SAM_C",
@@ -249,34 +299,48 @@ void UResourceRouletteUtility::UpdateNonGroupableResources(const USessionSetting
 		"Desc_FF_Dirt_Wet_C",
 		"Desc_RP_Thorium_C"
 	};
-	
-	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupSAM"))
+
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupSAM") || !SessionSettings->
+		GetBoolOptionValue("ResourceRoulette.RandOpt.RandSAM"))
 	{
 		NonGroupableResources.Remove("Desc_SAM_C");
 	}
-	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupUranium"))
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupUranium") || !SessionSettings->
+		GetBoolOptionValue("ResourceRoulette.RandOpt.RandUranium"))
 	{
 		NonGroupableResources.Remove("Desc_OreUranium_C");
 	}
-	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupBauxite"))
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupBauxite") || !SessionSettings->
+		GetBoolOptionValue("ResourceRoulette.RandOpt.RandBauxite"))
 	{
 		NonGroupableResources.Remove("Desc_OreBauxite_C");
 	}
-	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupCrude"))
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupCrude") || !SessionSettings->
+		GetBoolOptionValue("ResourceRoulette.RandOpt.RandCrude"))
 	{
 		NonGroupableResources.Remove("Desc_LiquidOil_C");
 	}
-	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupFFDirt"))
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupFFDirt") || !SessionSettings->
+		GetBoolOptionValue("ResourceRoulette.RandOpt.RandFFDirt"))
 	{
 		NonGroupableResources.Remove("Desc_FF_Dirt_Fertilized_C");
 		NonGroupableResources.Remove("Desc_FF_Dirt_C");
 		NonGroupableResources.Remove("Desc_FF_Dirt_Wet_C");
 	}
-	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupRPThorium"))
+	if (SessionSettings->GetBoolOptionValue("ResourceRoulette.GroupOpt.GroupRPThorium") || !SessionSettings->
+		GetBoolOptionValue("ResourceRoulette.RandOpt.RandRPThorium"))
 	{
 		NonGroupableResources.Remove("Desc_RP_Thorium_C");
 	}
-	
+
+	// FString NonGroupableString;
+	// for (const FName& Resource : NonGroupableResources)
+	// {
+	// 	NonGroupableString += Resource.ToString() + TEXT(", ");
+	// }
+	// FResourceRouletteUtilityLog::Get().LogMessage(
+	// 	FString::Printf(TEXT("Updated NonGroupableResources: [%s]"), *NonGroupableString),
+	// 	ELogLevel::Debug);
 }
 
 /// Returns the current NonGroupableResources array
@@ -353,12 +417,14 @@ void UResourceRouletteUtility::LogAllResourceNodes(const UWorld* World)
 /// @param ResourceNodeActor We have to ignore the actor/mesh when raycasting or we hit ourself
 /// @return Returns True if it succeeds, false if fails. Failure should be because there was no
 ///			world to raycast against so we will try again later
-bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNodeData& NodeData, const UWorld* World, const AActor* ResourceNodeActor)
+bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNodeData& NodeData, const UWorld* World,
+                                                                   const AActor* ResourceNodeActor)
 {
+	RR_PROFILE();
 	TArray<FVector> SamplePoints;
 	const float Radius = 800.0f; // gives 16m search diameter, which is ~2 foundations.
 	const int NumPoints = 50; // How many raycast points to check
-	FVector LocationAboveGround = NodeData.Location + FVector(0, 0, 600);  // Start 4m above ground
+	FVector LocationAboveGround = NodeData.Location + FVector(0, 0, 600); // Start 4m above ground
 
 	// Vogel disk for sampling. We can precalculate this instead of doing at runtime if this is a bottleneck
 	// but the whole process is surprisingly lightweight. We could probably bump to even more points tbh 
@@ -381,7 +447,7 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 		QueryParams.AddIgnoredActor(ResourceNodeActor);
 		QueryParams.AddIgnoredComponent(ResourceNodeActor->FindComponentByClass<UStaticMeshComponent>());
 	}
-	
+
 	// for (const FVector& StartPoint : SamplePoints)
 	// {
 	// 	FVector EndPoint = StartPoint - FVector(0, 0, 1200);
@@ -401,7 +467,7 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 			bool bHitPointAdded = false;
 			for (const FHitResult& Hit : Hits)
 			{
-				if (bHitPointAdded) 
+				if (bHitPointAdded)
 				{
 					break;
 				}
@@ -410,7 +476,8 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 				{
 					continue;
 				}
-				if (HitActor->IsA(ALandscapeStreamingProxy::StaticClass()) || HitActor->IsA(AStaticMeshActor::StaticClass()))
+				if (HitActor->IsA(ALandscapeStreamingProxy::StaticClass()) || HitActor->IsA(
+					AStaticMeshActor::StaticClass()))
 				{
 					HitPoints.Add(Hit.ImpactPoint);
 					bHitPointAdded = true;
@@ -424,13 +491,14 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 		}
 	}
 
-	
-	if (HitPoints.Num() < NumPoints-20)
+
+	if (HitPoints.Num() < NumPoints - 40)
 	{
-		FResourceRouletteUtilityLog::Get().LogMessage("Insufficient hit points for calculating node location and rotation.", ELogLevel::Warning);
+		FResourceRouletteUtilityLog::Get().LogMessage(
+			"Insufficient hit points for calculating node location and rotation.", ELogLevel::Warning);
 		return false;
 	}
-	
+
 	// Calculate average Z height for elevation adjustment, for now we lerp between the original and this one
 	float TotalZ = 0.0f;
 	for (const FVector& Point : HitPoints)
@@ -457,8 +525,10 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 /// @return Returns the normal of best plane
 FVector UResourceRouletteUtility::CalculateBestFitPlaneNormal(const TArray<FVector>& Points)
 {
-	const int MaxIterations = 50;  // How many iterations can we run
-	const float DistanceThreshold = 50.0f;  // How far can our point be off plane and still be "in" the plane - 30cm seems good
+	RR_PROFILE();
+	const int MaxIterations = 50; // How many iterations can we run
+	const float DistanceThreshold = 50.0f;
+	// How far can our point be off plane and still be "in" the plane - 30cm seems good
 	int BestInlierCount = 0;
 	FVector BestPlaneNormal = FVector::UpVector;
 
@@ -467,8 +537,14 @@ FVector UResourceRouletteUtility::CalculateBestFitPlaneNormal(const TArray<FVect
 		int Index1 = FMath::RandRange(0, Points.Num() - 1);
 		int Index2 = FMath::RandRange(0, Points.Num() - 1);
 		int Index3 = FMath::RandRange(0, Points.Num() - 1);
-		while (Index2 == Index1) Index2 = FMath::RandRange(0, Points.Num() - 1);
-		while (Index3 == Index1 || Index3 == Index2) Index3 = FMath::RandRange(0, Points.Num() - 1);
+		while (Index2 == Index1)
+		{
+			Index2 = FMath::RandRange(0, Points.Num() - 1);
+		}
+		while (Index3 == Index1 || Index3 == Index2)
+		{
+			Index3 = FMath::RandRange(0, Points.Num() - 1);
+		}
 		FVector P1 = Points[Index1];
 		FVector P2 = Points[Index2];
 		FVector P3 = Points[Index3];
@@ -503,83 +579,114 @@ FVector UResourceRouletteUtility::CalculateBestFitPlaneNormal(const TArray<FVect
 /// @param ProcessedNodes List of nodes
 /// @param SpawnedResourceNodes GUID keyed pointers to the AFGResourceNodes
 void UResourceRouletteUtility::AssociateExtractorsWithNodes(
-    UWorld* World, 
-    const TArray<FResourceNodeData>& ProcessedNodes, 
-    const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes)
+	UWorld* World,
+	const TArray<FResourceNodeData>& ProcessedNodes,
+	const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes)
 {
-    if (!World)
-    {
-        FResourceRouletteUtilityLog::Get().LogMessage(
-            "AssociateExtractorsWithNodes aborted: World is invalid.", 
-            ELogLevel::Error
-        );
-        return;
-    }
+	RR_PROFILE();
+	if (!World)
+	{
+		FResourceRouletteUtilityLog::Get().LogMessage(
+			"AssociateExtractorsWithNodes aborted: World is invalid.",
+			ELogLevel::Error
+		);
+		return;
+	}
 
-    const float MinerAssociationRadius = 700.0f; // 7m
-    const float PortableMinerRadius = 1500.0f; // 15m
+	const float MinerAssociationRadius = 700.0f; // 7m
+	const float PortableMinerRadius = 1500.0f; // 15m
 
-    // Handle Solid Miners
-    for (TActorIterator<AFGBuildableResourceExtractor> It(World); It; ++It)
-    {
-        AFGBuildableResourceExtractor* ResourceExtractor = *It;
-    	
-        FVector ExtractorLocation = ResourceExtractor->GetActorLocation() - FVector(0.0f, 0.0f, 150.0f);
-        AFGResourceNode* ClosestNode = nullptr;
-        float ClosestDistance = MinerAssociationRadius;
-    	
-        for (const FResourceNodeData& NodeData : ProcessedNodes)
-        {
-            if (AFGResourceNode* Node = SpawnedResourceNodes.FindRef(NodeData.NodeGUID))
-            {
-                if (!Node || Node->IsOccupied())
-                {
-                    continue;
-                }
+	// Handle Solid Miners
+	for (TActorIterator<AFGBuildableResourceExtractor> It(World); It; ++It)
+	{
+		AFGBuildableResourceExtractor* ResourceExtractor = *It;
 
-                float Distance = FVector::Dist(ExtractorLocation, NodeData.Location);
-                if (Distance < ClosestDistance)
-                {
-                    ClosestNode = Node;
-                    ClosestDistance = Distance;
-                }
-            }
-        }
+		if (ResourceExtractor->IsA(AFGBuildableWaterPump::StaticClass()))
+		{
+			continue;
+		}
 
-        if (ClosestNode)
-        {
-            ClosestNode->SetIsOccupied(true);
-            ResourceExtractor->mExtractableResource = ClosestNode;
-        }
-    }
+		FVector ExtractorLocation = ResourceExtractor->GetActorLocation() - FVector(0.0f, 0.0f, 150.0f);
+		AFGResourceNode* ClosestNode = nullptr;
+		float ClosestDistance = MinerAssociationRadius;
+
+		for (const FResourceNodeData& NodeData : ProcessedNodes)
+		{
+			if (AFGResourceNode* Node = SpawnedResourceNodes.FindRef(NodeData.NodeGUID))
+			{
+				if (!Node || Node->IsOccupied())
+				{
+					continue;
+				}
+
+				if (!ResourceExtractor->IsAllowedOnResource(Node))
+				{
+					continue;
+				}
+
+				float Distance = FVector::Dist(ExtractorLocation, NodeData.Location);
+				if (Distance < ClosestDistance)
+				{
+					ClosestNode = Node;
+					ClosestDistance = Distance;
+				}
+			}
+		}
+
+		if (ClosestNode)
+		{
+			ResourceExtractor->SetExtractableResource(ClosestNode);
+		}
+		else
+		{
+			AResourceRouletteInvalidNode* InvalidNode = World->SpawnActor<AResourceRouletteInvalidNode>();
+			InvalidNode->InitResource(UResourceRouletteInvalidResource::StaticClass(), EResourceAmount::RA_Infinite,
+			                          EResourcePurity::RP_Normal);
+			ResourceExtractor->SetResourceNode(InvalidNode);
+			ResourceExtractor->mOutputInventory->Empty();
+			ResourceExtractor->mCurrentExtractProgress = 0.0f;
+		}
+	}
 
 	// Handle Portable Miners
-    for (TActorIterator<AFGPortableMiner> It(World); It; ++It)
-    {
-        AFGPortableMiner* PortableMiner = *It;
+	for (TActorIterator<AFGPortableMiner> It(World); It; ++It)
+	{
+		AFGPortableMiner* PortableMiner = *It;
 
-        FVector MinerLocation = PortableMiner->GetActorLocation();
-        AFGResourceNode* ClosestNode = nullptr;
-        float ClosestDistance = PortableMinerRadius;
-    	
-        for (const FResourceNodeData& NodeData : ProcessedNodes)
-        {
-            if (AFGResourceNode* Node = SpawnedResourceNodes.FindRef(NodeData.NodeGUID))
-            {
-                float Distance = FVector::Dist(MinerLocation, NodeData.Location);
-                if (Distance < ClosestDistance)
-                {
-                    ClosestNode = Node;
-                    ClosestDistance = Distance;
-                }
-            }
-        }
+		FVector MinerLocation = PortableMiner->GetActorLocation();
+		AFGResourceNode* ClosestNode = nullptr;
+		float ClosestDistance = PortableMinerRadius;
 
-        if (ClosestNode)
-        {
-            PortableMiner->mExtractResourceNode = ClosestNode;
-        }
-    }
+		for (const FResourceNodeData& NodeData : ProcessedNodes)
+		{
+			if (AFGResourceNode* Node = SpawnedResourceNodes.FindRef(NodeData.NodeGUID))
+			{
+				float Distance = FVector::Dist(MinerLocation, NodeData.Location);
+				if (Distance < ClosestDistance)
+				{
+					ClosestNode = Node;
+					ClosestDistance = Distance;
+				}
+			}
+		}
+
+		if (ClosestNode)
+		{
+			PortableMiner->mExtractResourceNode = ClosestNode;
+		}
+		else
+		{
+			FResourceRouletteUtilityLog::Get().LogMessage(
+				FString::Printf(TEXT("Can't find a matching node - destroying portable miner at location: %s"),
+				                *MinerLocation.ToString()), ELogLevel::Warning);
+			AResourceRouletteInvalidNode* InvalidNode = World->SpawnActor<AResourceRouletteInvalidNode>();
+			InvalidNode->InitResource(UResourceRouletteInvalidResource::StaticClass(), EResourceAmount::RA_Infinite,
+			                          EResourcePurity::RP_Normal);
+			PortableMiner->mExtractResourceNode = InvalidNode;
+			PortableMiner->mOutputInventory->Empty();
+			PortableMiner->mCurrentExtractProgress = 0.0f;
+		}
+	}
 }
 
 /// Removes all extractors that are located on the custom nodes.
@@ -587,54 +694,182 @@ void UResourceRouletteUtility::AssociateExtractorsWithNodes(
 /// @param ProcessedNodes List of nodes
 /// @param SpawnedResourceNodes GUID keyed pointers to the AFGResourceNodes
 void UResourceRouletteUtility::RemoveExtractors(
-    UWorld* World, 
-    const TArray<FResourceNodeData>& ProcessedNodes, 
-    const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes)
+	UWorld* World,
+	const TArray<FResourceNodeData>& ProcessedNodes,
+	const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes)
 {
-    if (!World)
-    {
-        FResourceRouletteUtilityLog::Get().LogMessage(
-            "RemoveExtractors aborted: World is invalid.", 
-            ELogLevel::Error
-        );
-        return;
-    }
+	RR_PROFILE();
+	if (!World)
+	{
+		FResourceRouletteUtilityLog::Get().LogMessage(
+			"RemoveExtractors aborted: World is invalid.",
+			ELogLevel::Error
+		);
+		return;
+	}
 
-    //AFGBuildableResourceExtractor
-    for (TActorIterator<AFGBuildableResourceExtractor> It(World); It; ++It)
-    {
-        AFGBuildableResourceExtractor* ResourceExtractor = *It;
-        AFGResourceNode* ExtractorNode = Cast<AFGResourceNode>(ResourceExtractor->mExtractableResource);
-        if (ExtractorNode)
-        {
-            for (const auto& Pair : SpawnedResourceNodes)
-            {
-                if (Pair.Value == ExtractorNode)
-                {
-                    ResourceExtractor->Destroy();
-                    break;
-                }
-            }
-        }
-    }
+	//AFGBuildableResourceExtractor
+	for (TActorIterator<AFGBuildableResourceExtractor> It(World); It; ++It)
+	{
+		AFGBuildableResourceExtractor* ResourceExtractor = *It;
 
-    // AFGPortableMiner
-    for (TActorIterator<AFGPortableMiner> It(World); It; ++It)
-    {
-        AFGPortableMiner* PortableMiner = *It;
-    	
-        AFGResourceNode* MinerNode = Cast<AFGResourceNode>(PortableMiner->mExtractResourceNode);
-        if (MinerNode)
-        {
-            for (const auto& Pair : SpawnedResourceNodes)
-            {
-                if (Pair.Value == MinerNode)
-                {
-                    PortableMiner->Destroy();
-                    break;
-                }
-            }
-        }
-    }
+		if (ResourceExtractor->IsA(AFGBuildableWaterPump::StaticClass()))
+		{
+			continue;
+		}
+
+		AFGResourceNode* ExtractorNode = Cast<AFGResourceNode>(ResourceExtractor->mExtractableResource);
+		if (ExtractorNode)
+		{
+			for (const auto& Pair : SpawnedResourceNodes)
+			{
+				if (Pair.Value == ExtractorNode)
+				{
+					ResourceExtractor->Destroy();
+					break;
+				}
+			}
+		}
+	}
+
+	// AFGPortableMiner
+	for (TActorIterator<AFGPortableMiner> It(World); It; ++It)
+	{
+		AFGPortableMiner* PortableMiner = *It;
+
+		AFGResourceNode* MinerNode = Cast<AFGResourceNode>(PortableMiner->mExtractResourceNode);
+		if (MinerNode)
+		{
+			for (const auto& Pair : SpawnedResourceNodes)
+			{
+				if (Pair.Value == MinerNode)
+				{
+					PortableMiner->Destroy();
+					break;
+				}
+			}
+		}
+	}
 }
 
+
+void UResourceRouletteUtility::ScannerGenerateNodeClusters(UWorld* World, float ClusterRadius)
+{
+	RR_PROFILE();
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ScannerGenerateNodeClusters: Invalid World!"));
+		return;
+	}
+
+	// Grab resource scanner (may need different method in Multiplayer? TODO:)
+	AFGResourceScanner* ResourceScanner = Cast<AFGResourceScanner>(
+		UGameplayStatics::GetActorOfClass(World, AFGResourceScanner::StaticClass()));
+	if (!ResourceScanner)
+	{
+		FResourceRouletteUtilityLog::Get().LogMessage("ScannerGenerateNodeClusters: No Resource Scanner Found.",
+		                                              ELogLevel::Warning);
+		return;
+	}
+
+	TArray<AFGResourceNodeBase*> ResourceNodes;
+	for (TActorIterator<AFGResourceNodeBase> It(World); It; ++It)
+	{
+		AFGResourceNodeBase* Node = *It;
+		if (Node)
+		{
+			ResourceNodes.Add(Node);
+		}
+	}
+
+	if (ResourceNodes.Num() == 0)
+	{
+		FResourceRouletteUtilityLog::Get().LogMessage("ScannerGenerateNodeClusters: No resource nodes found.",
+		                                              ELogLevel::Warning);
+		return;
+	}
+
+	// Group nodes by resource class
+	TMap<TSubclassOf<UFGResourceDescriptor>, TArray<AFGResourceNodeBase*>> NodesByResourceClass;
+	for (AFGResourceNodeBase* Node : ResourceNodes)
+	{
+		if (Node && Node->GetResourceClass())
+		{
+			NodesByResourceClass.FindOrAdd(Node->GetResourceClass()).Add(Node);
+		}
+	}
+
+	TArray<TArray<AFGResourceNodeBase*>> ResourceClassBuckets;
+	const int32 NumThreads = NodesByResourceClass.Num();
+	ResourceClassBuckets.SetNum(NumThreads);
+
+	// Originally wanted to group smaller resource nodes on a single thread to max out utilization but this may be unnecessary
+	NodesByResourceClass.ValueSort([](const TArray<AFGResourceNodeBase*>& A, const TArray<AFGResourceNodeBase*>& B)
+	{
+		return A.Num() > B.Num();
+	});
+
+	int32 ThreadIndex = 0;
+	for (const auto& Pair : NodesByResourceClass)
+	{
+		ResourceClassBuckets[ThreadIndex].Append(Pair.Value);
+		ThreadIndex = (ThreadIndex + 1) % NumThreads;
+	}
+
+	// Clustering nodes
+	TArray<FNodeClusterData> NodeClusters;
+	FCriticalSection CriticalSection;
+
+	ParallelFor(NodesByResourceClass.Num(), [&](int32 Index)
+	{
+		TArray<AFGResourceNodeBase*> Nodes = NodesByResourceClass.Array()[Index].Value;
+		TArray<FNodeClusterData> ThreadClusters;
+
+		while (Nodes.Num() > 0)
+		{
+			AFGResourceNodeBase* Node = Nodes.Pop();
+			TArray<AFGResourceNodeBase*> ClusterNodes;
+			ClusterNodes.Add(Node);
+
+			FVector ClusterMidPoint = Node->GetActorLocation();
+
+			for (int32 i = Nodes.Num() - 1; i >= 0; --i)
+			{
+				if (FVector::Dist(ClusterMidPoint, Nodes[i]->GetActorLocation()) <= ClusterRadius)
+				{
+					ClusterNodes.Add(Nodes[i]);
+					Nodes.RemoveAtSwap(i);
+				}
+			}
+
+			FVector Sum = FVector::ZeroVector;
+			for (AFGResourceNodeBase* ClusterNode : ClusterNodes)
+			{
+				Sum += ClusterNode->GetActorLocation();
+			}
+			ClusterMidPoint = Sum / ClusterNodes.Num();
+
+			FNodeClusterData ThreadClusterData;
+			ThreadClusterData.Nodes = ClusterNodes;
+			ThreadClusterData.MidPoint = ClusterMidPoint;
+			ThreadClusterData.ResourceDescriptor = Node->GetResourceClass();
+
+			ThreadClusters.Add(ThreadClusterData);
+		}
+
+		// Add to the big bucket of clusters
+		FScopeLock Lock(&CriticalSection);
+		for (const FNodeClusterData& Cluster : ThreadClusters)
+		{
+			if (Cluster.Nodes.Num() > 0)
+			{
+				NodeClusters.Add(Cluster);
+			}
+		}
+	});
+
+	ResourceScanner->mNodeClusters = NodeClusters;
+	// FResourceRouletteUtilityLog::Get().LogMessage(
+	// 	FString::Printf(TEXT("ScannerGenerateNodeClusters: Generated %d clusters across %d threads"),
+	// 	                NodeClusters.Num(), NumThreads), ELogLevel::Warning);
+}

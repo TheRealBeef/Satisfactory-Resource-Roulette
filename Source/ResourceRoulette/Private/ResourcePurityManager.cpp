@@ -3,16 +3,18 @@
 #include "ResourceRouletteUtility.h"
 #include "EngineUtils.h"
 #include "ResourceCollectionManager.h"
+#include "ResourceRouletteCompatibilityManager.h"
+#include "ResourceRouletteProfiler.h"
 
 UResourcePurityManager::UResourcePurityManager()
 {
 	RemainingPurityCounts.Empty();
 	FoundPurityCounts.Empty();
-	
-	PurityZones.Add({ FVector2D(-50000.0f, 240000.0f), 80000.0f, EResourcePurity::RP_Inpure}); // Grasslands Spawn
-	PurityZones.Add({ FVector2D(50000.0f, -90000.0f), 80000.0f, EResourcePurity::RP_Inpure}); // Northern Forest Spawn
-	PurityZones.Add({ FVector2D(300000.0f, -175000.0f), 120000.0f, EResourcePurity::RP_Inpure}); //Dune Desert Spawn
-	PurityZones.Add({ FVector2D(-220000.0f, -35000.0f), 80000.0f, EResourcePurity::RP_Inpure}); //Rocky Desert Spawn
+
+	PurityZones.Add({FVector2D(-50000.0f, 240000.0f), 80000.0f, EResourcePurity::RP_Inpure}); // Grasslands Spawn
+	PurityZones.Add({FVector2D(50000.0f, -90000.0f), 80000.0f, EResourcePurity::RP_Inpure}); // Northern Forest Spawn
+	PurityZones.Add({FVector2D(300000.0f, -175000.0f), 120000.0f, EResourcePurity::RP_Inpure}); //Dune Desert Spawn
+	PurityZones.Add({FVector2D(-220000.0f, -35000.0f), 80000.0f, EResourcePurity::RP_Inpure}); //Rocky Desert Spawn
 }
 
 /// Gets Remaining Purity Counts
@@ -93,20 +95,37 @@ void UResourcePurityManager::AddFoundPurity(const FName ResourceClass, const ERe
 /// @param World - World context
 void UResourcePurityManager::CollectWorldPurities(const UWorld* World)
 {
+	RR_PROFILE();
 	FoundPurityCounts.Empty();
 	RemainingPurityCounts.Empty();
+	TSet<FName> RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
 
 	for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 	{
 		AFGResourceNode* ResourceNode = *It;
 
-		if (UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
+		bool bIsTagged = false;
+		for (const FName& RegisteredTag : RegisteredTags)
 		{
-			if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
+			if (ResourceNode->Tags.Contains(RegisteredTag) || ResourceNode->Tags.Contains(ResourceRouletteTag))
+			{
+				bIsTagged = true;
+				break;
+			}
+		}
+		if (bIsTagged)
+		{
+			continue;
+		}
+
+		if (UResourceRouletteUtility::IsValidAllInfiniteResourceNode(ResourceNode))
+		{
+			if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->
+				GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
 			{
 				continue;
 			}
-			
+
 			const EResourcePurity Purity = ResourceNode->GetResoucePurity();
 			const FName ResourceClassName = ResourceNode->GetResourceClass()->GetFName();
 			AddFoundPurity(ResourceClassName, Purity);
@@ -121,6 +140,7 @@ void UResourcePurityManager::CollectWorldPurities(const UWorld* World)
 /// @param ResourceNodes Array of FResourceNodeData
 void UResourcePurityManager::CollectOriginalPurities(const TArray<FResourceNodeData>& ResourceNodes)
 {
+	RR_PROFILE();
 	FoundPurityCounts.Empty();
 	RemainingPurityCounts.Empty();
 
@@ -135,7 +155,7 @@ void UResourcePurityManager::CollectOriginalPurities(const TArray<FResourceNodeD
 	}
 
 	RemainingPurityCounts = FoundPurityCounts;
-	
+
 	// LogFoundPurities();
 }
 

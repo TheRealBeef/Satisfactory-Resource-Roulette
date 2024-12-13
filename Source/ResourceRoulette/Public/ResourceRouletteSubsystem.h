@@ -22,7 +22,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void RerollResources();
-	
+
 	UFUNCTION(BlueprintCallable)
 	void UpdateResources();
 
@@ -42,7 +42,7 @@ public:
 	void SetSessionAlreadySpawned(bool InSessionAlreadySpawned);
 	void SetSessionRandomizedResourceNodes(const TArray<FResourceNodeData>& InSessionRandomizedResourceNodes);
 	void SetOriginalResourceNodes(const TArray<FResourceNodeData>& InOriginalResourceNodes);
-	
+
 	virtual bool ShouldSave_Implementation() const override { return true; }
 	virtual void PreSaveGame_Implementation(int32 SaveVersion, int32 GameVersion) override;
 	virtual void PostLoadGame_Implementation(int32 SaveVersion, int32 GameVersion) override;
@@ -54,33 +54,23 @@ protected:
 	void InitializeWorldSeedManager(UWorld* World);
 
 private:
-	UPROPERTY(SaveGame)
-	int32 SavedSeed;
+	UPROPERTY(SaveGame)	int32 SavedSeed;
 	int32 SessionSeed = -1;
 
-	UPROPERTY(SaveGame)
-	bool SavedAlreadySpawned = false;;
+	UPROPERTY(SaveGame)	bool SavedAlreadySpawned = false;;
 	bool SessionAlreadySpawned = false;
 
-	UPROPERTY(SaveGame)
-	TArray<FResourceNodeData> SavedRandomizedResourceNodes;
+	UPROPERTY(SaveGame)	FString SavedModVersion;
+	UPROPERTY(SaveGame)	TArray<FResourceNodeData> SavedRandomizedResourceNodes;
+	UPROPERTY(SaveGame)	TArray<FResourceNodeData> SavedOriginalResourceNodes;
 
-	UPROPERTY(SaveGame)
-	TArray<FResourceNodeData> SavedOriginalResourceNodes;
-
-	UPROPERTY()
-	TArray<FResourceNodeData> SessionRandomizedResourceNodes;
-
-	UPROPERTY()
-	TArray<FResourceNodeData> OriginalResourceNodes;
+	UPROPERTY()	TArray<FResourceNodeData> SessionRandomizedResourceNodes;
+	UPROPERTY()	TArray<FResourceNodeData> OriginalResourceNodes;
 
 	bool bIsInitialized = false;
 
-	UPROPERTY()
-	AResourceRouletteSeedManager* SeedManager;
-
-	UPROPERTY()
-	UResourceRouletteManager* ResourceRouletteManager;
+	UPROPERTY()	AResourceRouletteSeedManager* SeedManager;
+	UPROPERTY()	UResourceRouletteManager* ResourceRouletteManager;
 
 	FTimerHandle UpdateTimerHandle;
 };

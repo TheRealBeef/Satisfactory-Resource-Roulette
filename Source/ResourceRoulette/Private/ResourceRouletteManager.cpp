@@ -1,17 +1,21 @@
 ﻿#include "ResourceRouletteManager.h"
 
 #include "EngineUtils.h"
+#include "FGActorRepresentationManager.h"
 #include "ResourcePurityManager.h"
 #include "ResourceRouletteUtility.h"
 #include "ResourceCollectionManager.h"
 #include "ResourceNodeRandomizer.h"
 #include "ResourceRouletteSubsystem.h"
 #include "Components/DecalComponent.h"
+#include "Representation/FGResourceNodeRepresentation.h"
 #include "Equipment/FGResourceScanner.h"
 #include "Kismet/GameplayStatics.h"
 #include "ResourceRouletteCompatibilityManager.h"
+#include "Buildables/FGBuildableRadarTower.h"
 #include "Components/BoxComponent.h"
 #include "SessionSettings/SessionSettingsManager.h"
+#include "ResourceRouletteProfiler.h"
 
 
 /// We may want to add a check rather than just all 4 managers, as we aren't explicity removing these on reload
@@ -35,6 +39,7 @@ UResourceRouletteManager::UResourceRouletteManager()
 /// @param bReroll - Called when re-rolling resources
 void UResourceRouletteManager::Update(UWorld* World, AResourceRouletteSeedManager* InSeedManager, bool bReroll)
 {
+	RR_PROFILE();
 	const AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World);
 	if (bReroll)
 	{
@@ -45,7 +50,7 @@ void UResourceRouletteManager::Update(UWorld* World, AResourceRouletteSeedManage
 	SeedManager = InSeedManager;
 	ScanWorldResourceNodes(World, bReroll);
 	RandomizeWorldResourceNodes(World, bReroll);
-	// Only pass true as parameter if not reroll & we didn't already have saved, otherwise pass false
+	// Only pass true as parameter if reroll is false & already have saved data, otherwise pass false
 	SpawnWorldResourceNodes(World, (!bReroll && ResourceRouletteSubsystem->GetSessionAlreadySpawned()));
 	UpdateWorldResourceNodes(World);
 }
@@ -56,10 +61,11 @@ void UResourceRouletteManager::Update(UWorld* World, AResourceRouletteSeedManage
 /// @param bReroll
 void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bReroll)
 {
+	RR_PROFILE();
 	if (!World)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage("ScanWorldResourceNodes aborted: World is invalid.",
-													  ELogLevel::Error);
+		                                              ELogLevel::Error);
 		return;
 	}
 	if (!ResourceCollectionManager || !ResourcePurityManager)
@@ -76,11 +82,13 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 	if (!bReroll && !bIsResourcesScanned)
 	{
 		InitMeshesToDestroy();
-        	
+
 		// Here we can add classnames/tags for mods we want to have compatible with our mod
 		// Buildable Resource Nodes Redux
-		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Base_ResourceNode_C", "BuildableResourceNodeReduxObject");
-		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Build_Base_ResNode_C", "BuildableResourceNodeReduxObject");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Base_ResourceNode_C",
+		                                                            "BuildableResourceNodeReduxObject");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Build_Base_ResNode_C",
+		                                                            "BuildableResourceNodeReduxObject");
 		ResourceRouletteCompatibilityManager::RegisterResourceClass("BuildEffect_Default_C", "BuildEffect_Default_C");
 
 		// Resource Node Creator
@@ -94,7 +102,7 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 		ResourceRouletteCompatibilityManager::TagExistingActors(World);
 		ResourceRouletteCompatibilityManager::SetupActorSpawnCallback(World);
 	}
-	
+
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
 		// If we have previously randomized nodes in this save and now we should re-roll
@@ -103,6 +111,7 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 			// ResourceCollectionManager->SetCollectedResourcesNodes(ResourceRouletteSubsystem->GetOriginalResourceNodes());
 			// Here reset the raycast for all the nodes before passing it, to ensure that we resettle them properly.
 			TArray<FResourceNodeData> OriginalNodes = ResourceRouletteSubsystem->GetOriginalResourceNodes();
+
 			for (FResourceNodeData& NodeData : OriginalNodes)
 			{
 				NodeData.IsRayCasted = false;
@@ -128,8 +137,8 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 				{
 					continue;
 				}
-				
-				if (!UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
+
+				if (!UResourceRouletteUtility::IsValidFilteredInfiniteResourceNode(ResourceNode))
 				{
 					continue;
 				}
@@ -152,7 +161,21 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 		// If we have previously randomized nodes in this save
 		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && !bReroll && !bIsResourcesScanned)
 		{
-			ResourceCollectionManager->SetCollectedResourcesNodes(ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes());
+			// If we've emptied our original resource nodes and need to rescan
+			if (ResourceRouletteSubsystem->GetOriginalResourceNodes().IsEmpty())
+			{
+				ResourceCollectionManager->CollectWorldResources(World);
+				const TArray<FResourceNodeData>& NewResourceNodes = ResourceCollectionManager->
+					GetCollectedResourceNodes();
+				ResourceRouletteSubsystem->SetOriginalResourceNodes(NewResourceNodes);
+				ResourcePurityManager->CollectOriginalPurities(NewResourceNodes);
+				FResourceRouletteUtilityLog::Get().LogMessage("Cached new Original Resource node data.",
+				                                              ELogLevel::Debug);
+			}
+
+			ResourceCollectionManager->SetCollectedResourcesNodes(
+				ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes());
+
 			// Destroy the actors!
 			for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 			{
@@ -172,8 +195,8 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 				{
 					continue;
 				}
-				
-				if (!UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
+
+				if (!UResourceRouletteUtility::IsValidAllInfiniteResourceNode(ResourceNode))
 				{
 					continue;
 				}
@@ -210,9 +233,11 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 }
 
 /// Manager method to randomize world resources by updating the struct that holds all world resources
-/// @param World 
+/// @param World world context
+/// @param bReroll to reroll or not
 void UResourceRouletteManager::RandomizeWorldResourceNodes(UWorld* World, bool bReroll)
 {
+	RR_PROFILE();
 	if (!World)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage("RandomizeWorldResourceNodes aborted: World is invalid.",
@@ -220,11 +245,12 @@ void UResourceRouletteManager::RandomizeWorldResourceNodes(UWorld* World, bool b
 		return;
 	}
 
-	
+
 	// Set Grouping Radius
 	USessionSettingsManager* SessionSettings = GetWorld()->GetSubsystem<USessionSettingsManager>();
-	ResourceNodeRandomizer->SetGroupingRadius(SessionSettings->GetFloatOptionValue("ResourceRoulette.GroupOpt.GroupRadius"));
-	
+	ResourceNodeRandomizer->SetGroupingRadius(
+		SessionSettings->GetFloatOptionValue("ResourceRoulette.GroupOpt.GroupRadius"));
+
 	if (const AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
 		if (ResourceRouletteSubsystem->GetSessionAlreadySpawned() && !bReroll)
@@ -232,7 +258,7 @@ void UResourceRouletteManager::RandomizeWorldResourceNodes(UWorld* World, bool b
 			bIsResourcesRandomized = true;
 		}
 	}
-	if (bIsResourcesScanned && !bIsResourcesRandomized )
+	if (bIsResourcesScanned && !bIsResourcesRandomized)
 	{
 		ResourceNodeRandomizer->RandomizeWorldResources(World, ResourceCollectionManager, ResourcePurityManager,
 		                                                SeedManager);
@@ -247,9 +273,11 @@ void UResourceRouletteManager::RandomizeWorldResourceNodes(UWorld* World, bool b
 }
 
 /// Manager method to spawn all the resource nodes needed
-/// @param World 
+/// @param World world context
+/// @param IsFromSaved is it from a save or randomizer?
 void UResourceRouletteManager::SpawnWorldResourceNodes(UWorld* World, bool IsFromSaved)
 {
+	RR_PROFILE();
 	if (!World)
 	{
 		FResourceRouletteUtilityLog::Get().LogMessage("SpawnWorldResourceNodes aborted: World is invalid.",
@@ -261,18 +289,12 @@ void UResourceRouletteManager::SpawnWorldResourceNodes(UWorld* World, bool IsFro
 		ResourceNodeSpawner->SpawnWorldResources(World, ResourceNodeRandomizer, IsFromSaved);
 		if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 		{
-			const TArray<FResourceNodeData>& ProcessedNodes = ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes();
-			UResourceRouletteUtility::AssociateExtractorsWithNodes(World, ProcessedNodes, ResourceNodeSpawner->GetSpawnedResourceNodes());
+			const TArray<FResourceNodeData>& ProcessedNodes = ResourceRouletteSubsystem->
+				GetSessionRandomizedResourceNodes();
+			UResourceRouletteUtility::AssociateExtractorsWithNodes(World, ProcessedNodes,
+			                                                       ResourceNodeSpawner->GetSpawnedResourceNodes());
 		}
 
-		AFGResourceScanner* ResourceScanner = Cast<AFGResourceScanner>(
-	UGameplayStatics::GetActorOfClass(World, AFGResourceScanner::StaticClass()));
-		if (ResourceScanner)
-		{
-			ResourceScanner->GenerateNodeClusters();
-			FResourceRouletteUtilityLog::Get().LogMessage("Node Clusters generated successfully.", ELogLevel::Debug);
-		}
-		
 		bIsResourcesSpawned = true;
 		FResourceRouletteUtilityLog::Get().LogMessage("Resources Spawning completed successfully.", ELogLevel::Debug);
 	}
@@ -289,9 +311,11 @@ void UResourceRouletteManager::SpawnWorldResourceNodes(UWorld* World, bool IsFro
 /// @param World 
 void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) const
 {
+	RR_PROFILE();
 	if (!World)
 	{
-		FResourceRouletteUtilityLog::Get().LogMessage("UpdateWorldResourceNodes aborted: World is invalid.",ELogLevel::Error);
+		FResourceRouletteUtilityLog::Get().LogMessage("UpdateWorldResourceNodes aborted: World is invalid.",
+		                                              ELogLevel::Error);
 		return;
 	}
 
@@ -302,7 +326,7 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 	}
 
 	// double StartTotalTime = FPlatformTime::Seconds();
-	
+
 	FVector PlayerLocation;
 	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(World, 0);
 	if (PlayerController && PlayerController->GetPawn())
@@ -325,10 +349,10 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 		FResourceRouletteUtilityLog::Get().LogMessage("ResourceRouletteSubsystem is invalid.", ELogLevel::Error);
 		return;
 	}
-	
+
 	TArray<FResourceNodeData> ProcessedNodes = ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes();
 
-	
+
 	// double StartNodeUpdatingTime = FPlatformTime::Seconds();
 
 	// Somehow this takes <1ms to run normally, even when we're updating and raycasting things
@@ -343,7 +367,8 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 		}
 		if (!NodeData.IsRayCasted && FVector::Dist(NodeData.Location, PlayerLocation) <= UpdateRadius)
 		{
-			if (AFGResourceNode** ResourceNodePtr = ResourceNodeSpawner->GetSpawnedResourceNodes().Find(NodeData.NodeGUID))
+			if (AFGResourceNode** ResourceNodePtr = ResourceNodeSpawner->GetSpawnedResourceNodes().Find(
+				NodeData.NodeGUID))
 			{
 				AFGResourceNode* ResourceNode = *ResourceNodePtr;
 				if (UResourceRouletteUtility::CalculateLocationAndRotationForNode(NodeData, World, ResourceNode))
@@ -351,27 +376,31 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 					bNodeUpdated = true;
 					// ResourceNode->SetActorLocation(NodeData.Location,false, nullptr, ETeleportType::TeleportPhysics);
 					// ResourceNode->SetActorRotation(NodeData.Rotation, ETeleportType::TeleportPhysics);
-			
-					if (UStaticMeshComponent* MeshComponent = ResourceNode->FindComponentByClass<UStaticMeshComponent>())
+
+					if (UStaticMeshComponent* MeshComponent = ResourceNode->FindComponentByClass<
+						UStaticMeshComponent>())
 					{
 						// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Updating MeshComponent Location to: %s, Rotation to: %s"),
 						// 	*NodeData.Location.ToString(), *NodeData.Rotation.ToString()),	ELogLevel::Debug);
 						FVector CorrectedLocation = NodeData.Location + NodeData.Offset;
-						MeshComponent->SetWorldLocation(CorrectedLocation,false,nullptr,ETeleportType::TeleportPhysics);
+						MeshComponent->SetWorldLocation(CorrectedLocation, false, nullptr,
+						                                ETeleportType::TeleportPhysics);
 						// MeshComponent->SetWorldLocation(NodeData.Location, false, nullptr, ETeleportType::TeleportPhysics);
-						MeshComponent->SetWorldRotation(NodeData.Rotation, false, nullptr, ETeleportType::TeleportPhysics);
-
+						MeshComponent->SetWorldRotation(NodeData.Rotation, false, nullptr,
+						                                ETeleportType::TeleportPhysics);
 					}
 					if (UBoxComponent* CollisionBox = ResourceNode->FindComponentByClass<UBoxComponent>())
 					{
-						CollisionBox->SetWorldLocation(NodeData.Location, false, nullptr, ETeleportType::TeleportPhysics);
-						CollisionBox->SetWorldRotation(NodeData.Rotation, false, nullptr, ETeleportType::TeleportPhysics);
+						CollisionBox->SetWorldLocation(NodeData.Location, false, nullptr,
+						                               ETeleportType::TeleportPhysics);
+						CollisionBox->SetWorldRotation(NodeData.Rotation, false, nullptr,
+						                               ETeleportType::TeleportPhysics);
 					}
 				}
 			}
 		}
 	}
-		
+
 	if (bNodeUpdated)
 	{
 		ResourceRouletteSubsystem->SetSessionRandomizedResourceNodes(ProcessedNodes);
@@ -404,7 +433,7 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 					return;
 				}
 			}
-			
+
 			if (const UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh())
 			{
 				FName MeshPath = FName(*StaticMesh->GetPathName());
@@ -416,7 +445,7 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 			}
 		}
 	});
-	
+
 	for (UStaticMeshComponent* StaticMeshComponent : ComponentsToDestroy)
 	{
 		// if (AActor* OwnerActor = StaticMeshComponent->GetAttachmentRootActor())
@@ -439,7 +468,7 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 		StaticMeshComponent->SetVisibility(false);
 		StaticMeshComponent->DestroyComponent();
 	}
-	
+
 	TArray<UDecalComponent*> DecalComponents;
 	for (UDecalComponent* DecalComponent : DecalComponents)
 	{
@@ -449,7 +478,7 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 			DecalComponent->DestroyComponent();
 		}
 	}
-	
+
 	// double MeshDestroyingTime = (FPlatformTime::Seconds() - StartMeshDestroyingTime)*1000.0f;
 	// double TotalTime = (FPlatformTime::Seconds() - StartTotalTime)*1000.0f;
 	// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Node updating took: %f ms"), NodeUpdatingTime), ELogLevel::Debug);
@@ -460,11 +489,13 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 /// Creates the lsit of meshes to destroy in a faster/smaller array to see if it improves speed
 void UResourceRouletteManager::InitMeshesToDestroy()
 {
+	RR_PROFILE();
 	MeshesToDestroy.Empty();
 
-	// Add solid resource paths
+	// Add resource paths
 	const TMap<FName, FResourceRouletteAssetSolid>& SolidResourceInfoMap =
 		UResourceRouletteAssets::SolidResourceInfoMap;
+
 	for (const auto& Pair : SolidResourceInfoMap)
 	{
 		MeshesToDestroy.Add(FName(*Pair.Value.MeshPath));
@@ -482,13 +513,91 @@ void UResourceRouletteManager::InitMeshesToDestroy()
 }
 
 /// Prep to remove the mod and destroy extractors in the world
-void UResourceRouletteManager::PrepModForRemoval()
+void UResourceRouletteManager::RemoveResourceRouletteNodes()
 {
-	
+	RR_PROFILE();
+	TSet<FName> TagsToCheck = ResourceRouletteCompatibilityManager::GetRegisteredTags();
+	for (TActorIterator<AFGResourceNode> It(GetWorld()); It; ++It)
+	{
+		AFGResourceNode* ResourceNode = *It;
+		bool bSkipNode = false;
+		for (const FName& RegisteredTag : TagsToCheck)
+		{
+			if (ResourceNode->Tags.Contains(RegisteredTag))
+			{
+				bSkipNode = true;
+				break;
+			}
+		}
+
+		if (bSkipNode)
+		{
+			continue;
+		}
+
+		if (!UResourceRouletteUtility::IsValidAllInfiniteResourceNode(ResourceNode))
+		{
+			continue;
+		}
+
+		if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->
+			GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
+		{
+			continue;
+		}
+
+		// Destroy the mesh and/or decal
+		TArray<UStaticMeshComponent*> MeshComponents;
+		ResourceNode->GetComponents(MeshComponents);
+		for (UStaticMeshComponent* MeshComponent : MeshComponents)
+		{
+			if (MeshComponent)
+			{
+				MeshComponent->SetVisibility(false);
+				MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				MeshComponent->DestroyComponent();
+			}
+		}
+		TArray<UDecalComponent*> DecalComponents;
+		for (UDecalComponent* DecalComponent : DecalComponents)
+		{
+			if (DecalComponent)
+			{
+				DecalComponent->SetVisibility(false);
+				DecalComponent->DestroyComponent();
+			}
+		}
+		// and then the actor
+		ResourceNode->Destroy();
+	}
+}
+
+void UResourceRouletteManager::UpdateRadarTowers() const
+{
+	RR_PROFILE();
+	for (TActorIterator<AFGBuildableRadarTower> It(GetWorld()); It; ++It)
+	{
+		AFGBuildableRadarTower* RadarTower = *It;
+		if (RadarTower)
+		{
+			RadarTower->ClearScannedResources();
+			RadarTower->ScanForResources();
+		}
+	}
+}
+
+/// Prep to remove the mod and destroy extractors in the world
+/// 4.312 ms
+void UResourceRouletteManager::RemoveExtractorsFromWorld() const
+{
+	RR_PROFILE();
+
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(GetWorld()))
 	{
-		const TArray<FResourceNodeData>& ProcessedNodes = ResourceRouletteSubsystem->GetSessionRandomizedResourceNodes();
-		UResourceRouletteUtility::RemoveExtractors(GetWorld(), ProcessedNodes, ResourceNodeSpawner->GetSpawnedResourceNodes());
+		const TArray<FResourceNodeData>& ProcessedNodes = ResourceRouletteSubsystem->
+			GetSessionRandomizedResourceNodes();
+		UResourceRouletteUtility::RemoveExtractors(GetWorld(), ProcessedNodes,
+		                                           ResourceNodeSpawner->GetSpawnedResourceNodes());
 	}
 }
 

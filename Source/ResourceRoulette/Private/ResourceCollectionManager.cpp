@@ -2,13 +2,16 @@
 #include "Resources/FGResourceNode.h"
 #include "ResourceRouletteUtility.h"
 #include "EngineUtils.h"
+#include "FGActorRepresentationManager.h"
 #include "ResourceRouletteSubsystem.h"
+#include "Representation/FGResourceNodeRepresentation.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "Resources/FGResourceDescriptor.h"
 #include "Components/DecalComponent.h"
 #include "ResourceRouletteCompatibilityManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "ResourceRouletteProfiler.h"
 
 UResourceCollectionManager::UResourceCollectionManager()
 {
@@ -27,19 +30,69 @@ void UResourceCollectionManager::SetCollectedResourcesNodes(const TArray<FResour
 /// @param World World Context
 void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 {
+	RR_PROFILE();
+
 	CollectedResourceNodes.Empty();
 	TSet<FName> RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
-	
+
 	// FResourceRouletteUtilityLog::Get().LogMessage(TEXT("CollectWorldResources called"), ELogLevel::Debug);
+
+	// Need to kill zombie nodes :\ I don't know how they get caused just yet
+	TArray<FName> ZombieNodeClassnames = {
+		"Desc_FF_Dirt_Fertilized_C",
+		"Desc_FF_Dirt_C",
+		"Desc_FF_Dirt_Wet_C",
+		"Desc_RP_Thorium_C"
+	};
 
 	for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 	{
 		AFGResourceNode* ResourceNode = *It;
 
+		if (!UResourceRouletteUtility::IsValidAllInfiniteResourceNode(ResourceNode))
+		{
+			continue;
+		}
+
+		if (!ResourceNode->HasAnyFlags(RF_WasLoaded))
+		{
+			// Compare with our zombie node list
+			FName NodeClassName = ResourceNode->GetResourceClass()->GetFName();
+			if (ZombieNodeClassnames.Contains(NodeClassName))
+			{
+				// FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Killing zombie node: %s at location: %s"),
+				// 	*NodeClassName.ToString(),*ResourceNode->GetActorLocation().ToString()),ELogLevel::Warning);
+
+				TArray<UStaticMeshComponent*> MeshComponents;
+				ResourceNode->GetComponents(MeshComponents);
+				for (UStaticMeshComponent* MeshComponent : MeshComponents)
+				{
+					if (MeshComponent)
+					{
+						MeshComponent->SetVisibility(false);
+						MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+						MeshComponent->DestroyComponent();
+					}
+				}
+				TArray<UDecalComponent*> DecalComponents;
+				for (UDecalComponent* DecalComponent : DecalComponents)
+				{
+					if (DecalComponent)
+					{
+						DecalComponent->SetVisibility(false);
+						DecalComponent->DestroyComponent();
+					}
+				}
+				// and then the actor
+				ResourceNode->Destroy();
+				continue;
+			}
+		}
+
 		bool bIsTagged = false;
 		for (const FName& RegisteredTag : RegisteredTags)
 		{
-			if (ResourceNode->Tags.Contains(RegisteredTag))
+			if (ResourceNode->Tags.Contains(RegisteredTag) || ResourceNode->Tags.Contains(ResourceRouletteTag))
 			{
 				bIsTagged = true;
 				break;
@@ -49,17 +102,13 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 		{
 			continue;
 		}
-		
-		if (!UResourceRouletteUtility::IsValidInfiniteResourceNode(ResourceNode))
+
+		if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->
+			GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
 		{
 			continue;
 		}
 
-		if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
-		{
-			continue;
-		}
-		
 		// Collect node infos
 		FResourceNodeData NodeData;
 		NodeData.Classname = ResourceNode->GetClass()->GetName();
@@ -72,10 +121,10 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 		NodeData.ResourceNodeType = ResourceNode->GetResourceNodeType();
 		NodeData.ResourceForm = ResourceNode->GetResourceForm();
 		NodeData.bCanPlaceResourceExtractor = ResourceNode->CanPlaceResourceExtractor();
-		NodeData.bIsOccupied = ResourceNode->IsOccupied();
+		NodeData.bIsOccupied = false;
 		NodeData.IsRayCasted = false;
 		NodeData.NodeGUID = FGuid::NewGuid();
-		
+
 		// Add node data to collection
 		CollectedResourceNodes.Add(NodeData);
 
@@ -105,7 +154,7 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 	}
 
 	// Log and clear collected resources
-	 // LogCollectedResources();
+	// LogCollectedResources();
 }
 
 /// Logs all the collected resources
@@ -115,9 +164,9 @@ void UResourceCollectionManager::LogCollectedResources() const
 	for (const FResourceNodeData& NodeData : CollectedResourceNodes)
 	{
 		// Get the resource class name or default to "UnknownClass" if null
-		FString ResourceClassName = NodeData.ResourceClass != NAME_None 
-			? NodeData.ResourceClass.ToString() 
-			: "UnknownClass";
+		FString ResourceClassName = NodeData.ResourceClass != NAME_None
+			                            ? NodeData.ResourceClass.ToString()
+			                            : "UnknownClass";
 
 		// Format the general information string
 		FString GeneralInfo = FString::Printf(

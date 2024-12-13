@@ -63,9 +63,10 @@ class RESOURCEROULETTE_API UResourceRouletteUtility : public UObject
 	GENERATED_BODY()
 
 public:
-	static TArray<FName> ValidResourceClasses;
+	static TArray<FName> AllValidResourceClasses;
+	static TArray<FName> FilteredValidResourceClasses;
 	static TArray<FName> NonGroupableResources;
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Resource Roulette")
 	static void UseCustomLogFile(bool bEnableCustomLogFile);
 
@@ -74,21 +75,29 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Resource Roulette")
 	static void InitializeLoggingModule();
-		
-	static bool IsValidResourceClass(const FName& ResourceClassName);
-	static bool IsValidInfiniteResourceNode(const AFGResourceNode* ResourceNode);
-	
+
+	static bool IsValidAllResourceClass(const FName& ResourceClassName);
+	static bool IsValidFilteredResourceClass(const FName& ResourceClassName);
+
+	static bool IsValidAllInfiniteResourceNode(const AFGResourceNode* ResourceNode);
+	static bool IsValidFilteredInfiniteResourceNode(const AFGResourceNode* ResourceNode);
+
 	static void UpdateValidResourceClasses(const USessionSettingsManager* SessionSettings);
-	static const TArray<FName>& GetValidResourceClasses();
-	
+	static const TArray<FName>& GetFilteredValidResourceClasses();
+	static const TArray<FName>& GetAllValidResourceClasses();
+
 	static void UpdateNonGroupableResources(const USessionSettingsManager* SessionSettings);
 	static const TArray<FName>& GetNonGroupableResources();
 
 	static void LogAllResourceNodes(const UWorld* World);
 
 	static FVector CalculateBestFitPlaneNormal(const TArray<FVector>& Points);
-	static bool CalculateLocationAndRotationForNode(FResourceNodeData& NodeData, const UWorld* World, const AActor* ResourceNodeActor);
+	static bool CalculateLocationAndRotationForNode(FResourceNodeData& NodeData, const UWorld* World,
+	                                                const AActor* ResourceNodeActor);
 
-	static void AssociateExtractorsWithNodes(UWorld* World, const TArray<FResourceNodeData>& ProcessedNodes, const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes);
-	static void RemoveExtractors(UWorld* World, const TArray<FResourceNodeData>& ProcessedNodes, const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes);
+	static void AssociateExtractorsWithNodes(UWorld* World, const TArray<FResourceNodeData>& ProcessedNodes,
+	                                         const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes);
+	static void RemoveExtractors(UWorld* World, const TArray<FResourceNodeData>& ProcessedNodes,
+	                             const TMap<FGuid, AFGResourceNode*>& SpawnedResourceNodes);
+	static void ScannerGenerateNodeClusters(UWorld* World, float ClusterRadius);
 };

@@ -136,7 +136,6 @@ const TMap<FName, FResourceRouletteAssetHeat> UResourceRouletteAssets::HeatResou
 };
 
 
-
 const TMap<FName, FResourceRouletteAssetLiquid> UResourceRouletteAssets::LiquidResourceInfoMap = {
 	{
 		"Desc_LiquidOil_C", FResourceRouletteAssetLiquid{
@@ -145,7 +144,6 @@ const TMap<FName, FResourceRouletteAssetLiquid> UResourceRouletteAssets::LiquidR
 		}
 	}
 };
-
 
 
 const TMap<FName, FResourceRouletteAssetFracking> UResourceRouletteAssets::FrackingResourceInfoMap = {

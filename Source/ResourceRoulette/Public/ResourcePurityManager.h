@@ -13,7 +13,7 @@ struct FResourcePurityZone
 
 	UPROPERTY()	FVector2D Center;
 	UPROPERTY()	float Radius;
-	UPROPERTY() TEnumAsByte<EResourcePurity> DesiredPurity;
+	UPROPERTY()	TEnumAsByte<EResourcePurity> DesiredPurity;
 };
 
 UCLASS()
@@ -36,12 +36,12 @@ public:
 	void CollectOriginalPurities(const TArray<FResourceNodeData>& ResourceNodes);
 
 private:
-		void LogFoundPurities();
+	void LogFoundPurities();
 	void AddFoundPurity(FName ResourceClass, EResourcePurity Purity);
 	static bool IsValidPurityEnum(EResourcePurity Purity);
 
 	TMap<FName, TMap<EResourcePurity, int32>> FoundPurityCounts;
 	TMap<FName, TMap<EResourcePurity, int32>> RemainingPurityCounts;
 
-	UPROPERTY() TArray<FResourcePurityZone> PurityZones;
+	UPROPERTY()	TArray<FResourcePurityZone> PurityZones;
 };

@@ -8,6 +8,15 @@
 #include "Resources/FGResourceNode.h"
 #include "ResourceNodeSpawner.generated.h"
 
+struct FResourceNodeCache
+{
+	UStaticMesh* Mesh;
+	TArray<UMaterialInterface*> Materials;
+	UClass* Classname;
+	UMaterialInterface* DecalMaterial;
+};
+
+
 UCLASS()
 class RESOURCEROULETTE_API UResourceNodeSpawner : public UObject
 {
@@ -20,14 +29,14 @@ public:
 	bool SpawnResourceNodeDecal(UWorld* World, FResourceNodeData& NodeData,
 	                            const UResourceRouletteAssets* ResourceAssets);
 
-	TMap<FGuid, AFGResourceNode*>& GetSpawnedResourceNodes() {return SpawnedResourceNodes;}
-	
+	TMap<FGuid, AFGResourceNode*>& GetSpawnedResourceNodes() { return SpawnedResourceNodes; }
+
 private:
 	bool SpawnResourceNodeSolid(UWorld* World, FResourceNodeData& NodeData,
-	                                         const UResourceRouletteAssets* ResourceAssets);
+	                            const UResourceRouletteAssets* ResourceAssets);
 
 	UPROPERTY()	TMap<FGuid, AFGResourceNode*> SpawnedResourceNodes;
 	UPROPERTY()	UResourceNodeRandomizer* NodeRandomizer;
-	
+
 	TArray<FResourceNodeData> ProcessedNodes;
 };

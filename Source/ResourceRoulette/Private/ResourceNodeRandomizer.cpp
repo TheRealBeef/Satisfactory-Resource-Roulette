@@ -5,6 +5,7 @@
 #include "ResourceRouletteSeedManager.h"
 #include "ResourceRouletteSubsystem.h"
 #include "SessionSettings/SessionSettingsManager.h"
+#include "ResourceRouletteProfiler.h"
 
 UResourceNodeRandomizer::UResourceNodeRandomizer()
 {
@@ -19,10 +20,12 @@ UResourceNodeRandomizer::UResourceNodeRandomizer()
 /// @param InCollectionManager Collection manager instance 
 /// @param InPurityManager Purity Manager instance
 /// @param InSeedManager Seed manager instance
-void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UResourceCollectionManager* InCollectionManager,
+void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World,
+                                                      UResourceCollectionManager* InCollectionManager,
                                                       UResourcePurityManager* InPurityManager,
                                                       AResourceRouletteSeedManager* InSeedManager)
 {
+	RR_PROFILE();
 	CollectionManager = InCollectionManager;
 	PurityManager = InPurityManager;
 	SeedManager = InSeedManager;
@@ -32,40 +35,51 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 		return;
 	}
 
+	NotTouchedResourceNodes.Empty();
 	NotProcessedSinglePossibleLocations.Empty();
 	NotProcessedSingleResourceNodes.Empty();
+
 	// Oops, not init to zero resulting in some variance when re-rolling and init.
 	SingleNodeCounter = 0;
-	
+
 	// Get config options
 	USessionSettingsManager* SessionSettings = GetWorld()->GetSubsystem<USessionSettingsManager>();
-    bool bUsePurityExclusion = SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.UsePurityExclusion");
+	bool bUsePurityExclusion = SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.UsePurityExclusion");
 	bool bUseFullRandomization = SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.UseFullRandomization");
 	const int32 Seed = SeedManager->GetGlobalSeed();
 	TArray<FResourceNodeData> NotProcessedResourceNodes = CollectionManager->GetCollectedResourceNodes();
-	FilterNodes(NotProcessedResourceNodes);
+
+	// These NotTouchedResourceNodes are the "vanilla" locations that we'll append later
+	NotTouchedResourceNodes = FilterNodes(NotProcessedResourceNodes);
 	SortNodes(NotProcessedResourceNodes);
 
 	TArray<FVector> NotProcessedPossibleLocations;
 	for (const FResourceNodeData& Node : NotProcessedResourceNodes)
 	{
-		NotProcessedPossibleLocations.Add(Node.Location);
+		if (UResourceRouletteUtility::IsValidFilteredResourceClass(Node.ResourceClass))
+		{
+			NotProcessedPossibleLocations.Add(Node.Location);
+		}
 	}
+
 	NotProcessedPossibleLocations.Sort([](const FVector& A, const FVector& B) { return A.X < B.X; });
 	PseudorandomizeLocations(NotProcessedPossibleLocations, Seed);
-	
+
+	ProcessedResourceNodes.Empty();
+
+	for (int32 i = 0; i < NotTouchedResourceNodes.Num(); ++i)
+	{
+		PurityManager->DecrementAvailablePurities(NotTouchedResourceNodes[i].ResourceClass,
+		                                          NotTouchedResourceNodes[i].Purity);
+		ProcessedResourceNodes.Add(NotTouchedResourceNodes[i]);
+	}
+
 	ProcessNodes(NotProcessedResourceNodes, NotProcessedPossibleLocations, bUsePurityExclusion, bUseFullRandomization);
-		
+
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
 		ResourceRouletteSubsystem->SetSessionRandomizedResourceNodes(ProcessedResourceNodes);
 	}
-	// for (const auto& Node : ProcessedResourceNodes)
-	// {
-	//     FResourceRouletteUtilityLog::Get().LogMessage(
-	//         FString::Printf(TEXT("Node for spawn - Class: %s, Location: %s"),
-	//         *Node.ResourceClass->GetName(), *Node.Location.ToString()), ELogLevel::Debug);
-	// }
 }
 
 /// Processes nodes and randomize their location given an overly complex set of rules
@@ -73,178 +87,198 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World, UReso
 /// @param NotProcessedResourceNodes List of resource node structs to process
 /// @param NotProcessedPossibleLocations and the list of locations
 /// @param bUseFullRandomization
-void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes, TArray<FVector>& NotProcessedPossibleLocations, bool
+void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes,
+                                           TArray<FVector>& NotProcessedPossibleLocations, bool
                                            bUsePurityExclusion, bool bUseFullRandomization)
 {
-    ProcessedResourceNodes.Empty();
-	
+	RR_PROFILE();
 	// Get list of resources we shouldn't group
 	static const TArray<FName> NonGroupableResources = UResourceRouletteUtility::GetNonGroupableResources();
 
 	// Full Randomization - mostly ignores everything and just splatters nodes down like jackson pollock
 	if (bUseFullRandomization)
 	{
-	    TArray<FName> ValidResourceClasses = UResourceRouletteUtility::GetValidResourceClasses();
-	    if (ValidResourceClasses.Num() == 0 || NotProcessedPossibleLocations.Num() == 0)
-	    {
-	        FResourceRouletteUtilityLog::Get().LogMessage("No valid resources or locations available for full randomization", ELogLevel::Error);
-	        return;
-	    }
-	    FRandomStream RandomStream(SeedManager->GetGlobalSeed());
-	    for (FVector Location : NotProcessedPossibleLocations)
-	    {
-	        FName RandomResourceClass = ValidResourceClasses[RandomStream.RandRange(0, ValidResourceClasses.Num() - 1)];
-	        FResourceNodeData* SourceNode = NotProcessedResourceNodes.FindByPredicate([RandomResourceClass](const FResourceNodeData& Node)
-	        {
-	            return Node.ResourceClass == RandomResourceClass;
-	        });
+		TArray<FName> ValidResourceClasses = UResourceRouletteUtility::GetFilteredValidResourceClasses();
+		if (ValidResourceClasses.Num() == 0 || NotProcessedPossibleLocations.Num() == 0)
+		{
+			FResourceRouletteUtilityLog::Get().LogMessage(
+				"No valid resources or locations available for full randomization", ELogLevel::Error);
+			return;
+		}
+		FRandomStream RandomStream(SeedManager->GetGlobalSeed());
+		for (FVector Location : NotProcessedPossibleLocations)
+		{
+			FName RandomResourceClass = ValidResourceClasses[RandomStream.RandRange(0, ValidResourceClasses.Num() - 1)];
+			FResourceNodeData* SourceNode = NotProcessedResourceNodes.FindByPredicate(
+				[RandomResourceClass](const FResourceNodeData& Node)
+				{
+					return Node.ResourceClass == RandomResourceClass;
+				});
 
-	        if (!SourceNode)
-	        {
-	            FResourceRouletteUtilityLog::Get().LogMessage(
-	                FString::Printf(TEXT("No source node available for resource class: %s"), *RandomResourceClass.ToString()),
-	                ELogLevel::Warning);
-	            continue;
-	        }
-	        FResourceNodeData NewNode = *SourceNode;
-	        NewNode.Location = Location;
-	        EResourcePurity RandomPurity = static_cast<EResourcePurity>(RandomStream.RandRange(0, static_cast<int32>(EResourcePurity::RP_MAX) - 1));
-	        NewNode.Purity = RandomPurity;
-	        ProcessedResourceNodes.Add(NewNode);
-	    }
+			if (!SourceNode)
+			{
+				FResourceRouletteUtilityLog::Get().LogMessage(
+					FString::Printf(
+						TEXT("No source node available for resource class: %s"), *RandomResourceClass.ToString()),
+					ELogLevel::Warning);
+				continue;
+			}
+			FResourceNodeData NewNode = *SourceNode;
+			NewNode.Location = Location;
+			EResourcePurity RandomPurity = static_cast<EResourcePurity>(RandomStream.RandRange(
+				0, static_cast<int32>(EResourcePurity::RP_MAX) - 1));
+			NewNode.Purity = RandomPurity;
+			ProcessedResourceNodes.Add(NewNode);
+		}
 
-	    return;
+		return;
 	}
-	
-    while (NotProcessedResourceNodes.Num() > 0 && NotProcessedPossibleLocations.Num() > 0)
-    {
-        if (NotProcessedResourceNodes.Num() == 0 || NotProcessedPossibleLocations.Num() == 0)
-        {
-	        break;
-        }
-        FResourceNodeData CurrentNodeToProcess = NotProcessedResourceNodes.Last();
 
-    	// If it shouldn't be grouped, then:
-        if (NonGroupableResources.Contains(CurrentNodeToProcess.ResourceClass))
-        {
-            // Remove this node from the list to group and add it to single nodes
-            NotProcessedSingleResourceNodes.Add(CurrentNodeToProcess);
-            NotProcessedResourceNodes.Pop();
-            continue;
-        }
-    	
-        FVector StartingLocation = NotProcessedPossibleLocations.Last();
+	while (NotProcessedResourceNodes.Num() > 0 && NotProcessedPossibleLocations.Num() > 0)
+	{
+		if (NotProcessedResourceNodes.Num() == 0 || NotProcessedPossibleLocations.Num() == 0)
+		{
+			break;
+		}
+		FResourceNodeData CurrentNodeToProcess = NotProcessedResourceNodes.Last();
 
-        // recursively find all the node locations next to this location
-        TArray<FVector> GroupedLocations;
-        TArray<int32> GroupedLocationIndexes;
-    	TSet<int32> VisitedIndexes;
-    	GroupLocations(StartingLocation, NotProcessedPossibleLocations, GroupedLocations, GroupedLocationIndexes, VisitedIndexes);
+		// If it shouldn't be grouped, then:
+		if (NonGroupableResources.Contains(CurrentNodeToProcess.ResourceClass))
+		{
+			// Remove this node from the list to group and add it to single nodes
+			NotProcessedSingleResourceNodes.Add(CurrentNodeToProcess);
+			NotProcessedResourceNodes.Pop();
+			continue;
+		}
 
-        if (GroupedLocations.Num() == 1)
-        {
-            SingleNodeCounter++;
-        	// 25% chance, process it anyways, or 75% chance we do inside the if statement.
-        	// It's not "really" random but its repeatable
-            if (SingleNodeCounter % 4 != 0)
-            {
-                NotProcessedSinglePossibleLocations.Add(GroupedLocations[0]);
-                NotProcessedPossibleLocations.Pop(); // we processed the last location so this should work
-                continue;
-            }
-        }
+		FVector StartingLocation = NotProcessedPossibleLocations.Last();
 
-    	// Assign the first location to the node and add it to ProcessedResourceNodes, also assign purity stuff
-    	EResourcePurity AssignedPurity = AssignPurity(CurrentNodeToProcess.ResourceClass, GroupedLocations[0], bUsePurityExclusion);
-    	if (AssignedPurity == EResourcePurity::RP_MAX)
-    	{
-    		// If no purity is available, skip this node ... something is wrong
-    		FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("No purity is available for node at location: %s"), *CurrentNodeToProcess.Location.ToString()),ELogLevel::Warning);
-    		continue;
-    	}
-    	CurrentNodeToProcess.Purity = AssignedPurity;
-    	PurityManager->DecrementAvailablePurities(CurrentNodeToProcess.ResourceClass, AssignedPurity);
-        CurrentNodeToProcess.Location = GroupedLocations[0];
-        ProcessedResourceNodes.Add(CurrentNodeToProcess);
-        NotProcessedPossibleLocations.Pop();
-        NotProcessedResourceNodes.Pop();
-    	
-    	// Process additional locations in the group
-    	for (int32 i = 1; i < GroupedLocations.Num(); ++i)
-    	{
-    		int32 MatchingNodeIndex = INDEX_NONE;
-    		for (int32 NodeIndex = 0; NodeIndex < NotProcessedResourceNodes.Num(); ++NodeIndex)
-    		{
-    			const FResourceNodeData& Node = NotProcessedResourceNodes[NodeIndex];
-    			if (Node.ResourceClass == CurrentNodeToProcess.ResourceClass)
-    			{
-    		// 		bool bPurityCheckPassed = 
-						// (CurrentNodeToProcess.Purity == EResourcePurity::RP_Pure && Node.Purity != EResourcePurity::RP_Inpure) ||
-						// (CurrentNodeToProcess.Purity == EResourcePurity::RP_Inpure && Node.Purity != EResourcePurity::RP_Pure) ||
-						// (CurrentNodeToProcess.Purity == EResourcePurity::RP_Normal && Node.Purity == EResourcePurity::RP_Inpure) ||
-						// (CurrentNodeToProcess.Purity == Node.Purity);
-    				AssignedPurity = AssignPurity(CurrentNodeToProcess.ResourceClass, GroupedLocations[i], bUsePurityExclusion);
-    				bool bPurityCheckPassed = PurityManager->IsPurityAvailable(CurrentNodeToProcess.ResourceClass, AssignedPurity);
+		// recursively find all the node locations next to this location
+		TArray<FVector> GroupedLocations;
+		TArray<int32> GroupedLocationIndexes;
+		TSet<int32> VisitedIndexes;
+		GroupLocations(StartingLocation, NotProcessedPossibleLocations, GroupedLocations, GroupedLocationIndexes,
+		               VisitedIndexes);
 
-    				if (bPurityCheckPassed)
-    				{
-    					MatchingNodeIndex = NodeIndex;
-    					break;
-    				}
-    			}
-    		}
+		if (GroupedLocations.Num() == 1)
+		{
+			SingleNodeCounter++;
+			// 25% chance, process it anyways, or 75% chance we do inside the if statement.
+			// It's not "really" random but its repeatable
+			if (SingleNodeCounter % 4 != 0)
+			{
+				NotProcessedSinglePossibleLocations.Add(GroupedLocations[0]);
+				NotProcessedPossibleLocations.Pop(); // we processed the last location so this should work
+				continue;
+			}
+		}
 
-    		if (MatchingNodeIndex == INDEX_NONE)
-    		{
-    			NotProcessedSinglePossibleLocations.Add(GroupedLocations[i]);
-    			
-    			int32 LocationIndex = GroupedLocationIndexes[i];
-    			NotProcessedPossibleLocations.RemoveAt(LocationIndex);
-    			
-    			// Same gross TODO: stuff here as below, but ... it will work for now
-    			for (int32& Index : GroupedLocationIndexes)
-    			{
-    				if (Index > LocationIndex && Index < NotProcessedPossibleLocations.Num()) --Index;
-    			}
-    			continue;
-    		}
+		// Assign the first location to the node and add it to ProcessedResourceNodes, also assign purity stuff
+		EResourcePurity AssignedPurity = AssignPurity(CurrentNodeToProcess.ResourceClass, GroupedLocations[0],
+		                                              bUsePurityExclusion);
+		if (AssignedPurity == EResourcePurity::RP_MAX)
+		{
+			// If no purity is available, skip this node ... something is wrong
+			FResourceRouletteUtilityLog::Get().LogMessage(
+				FString::Printf(
+					TEXT("No purity is available for node at location: %s"), *CurrentNodeToProcess.Location.ToString()),
+				ELogLevel::Warning);
+			continue;
+		}
+		CurrentNodeToProcess.Purity = AssignedPurity;
+		PurityManager->DecrementAvailablePurities(CurrentNodeToProcess.ResourceClass, AssignedPurity);
+		CurrentNodeToProcess.Location = GroupedLocations[0];
+		ProcessedResourceNodes.Add(CurrentNodeToProcess);
+		NotProcessedPossibleLocations.Pop();
+		NotProcessedResourceNodes.Pop();
 
-    		FResourceNodeData& MatchingNode = NotProcessedResourceNodes[MatchingNodeIndex];
-    		MatchingNode.Purity = AssignedPurity;
-    		MatchingNode.Location = GroupedLocations[i];
-    		ProcessedResourceNodes.Add(MatchingNode);
-    		PurityManager->DecrementAvailablePurities(MatchingNode.ResourceClass, AssignedPurity);
+		// Process additional locations in the group
+		for (int32 i = 1; i < GroupedLocations.Num(); ++i)
+		{
+			int32 MatchingNodeIndex = INDEX_NONE;
+			for (int32 NodeIndex = 0; NodeIndex < NotProcessedResourceNodes.Num(); ++NodeIndex)
+			{
+				const FResourceNodeData& Node = NotProcessedResourceNodes[NodeIndex];
+				if (Node.ResourceClass == CurrentNodeToProcess.ResourceClass)
+				{
+					// 		bool bPurityCheckPassed = 
+					// (CurrentNodeToProcess.Purity == EResourcePurity::RP_Pure && Node.Purity != EResourcePurity::RP_Inpure) ||
+					// (CurrentNodeToProcess.Purity == EResourcePurity::RP_Inpure && Node.Purity != EResourcePurity::RP_Pure) ||
+					// (CurrentNodeToProcess.Purity == EResourcePurity::RP_Normal && Node.Purity == EResourcePurity::RP_Inpure) ||
+					// (CurrentNodeToProcess.Purity == Node.Purity);
+					AssignedPurity = AssignPurity(CurrentNodeToProcess.ResourceClass, GroupedLocations[i],
+					                              bUsePurityExclusion);
+					bool bPurityCheckPassed = PurityManager->IsPurityAvailable(
+						CurrentNodeToProcess.ResourceClass, AssignedPurity);
 
-    		int32 LocationIndex = GroupedLocationIndexes[i];
-    		NotProcessedPossibleLocations.RemoveAt(LocationIndex);
-    		NotProcessedResourceNodes.RemoveAt(MatchingNodeIndex);
+					if (bPurityCheckPassed)
+					{
+						MatchingNodeIndex = NodeIndex;
+						break;
+					}
+				}
+			}
 
-    		// To resolve an issue from removing this NotProcessedPossibleLocation, the disgusting way to fix it
-    		// is to do this ... maybe it's better just to search and remove the location rather than this nonsense
-    		// but that's another TODO: item
-    		for (int32& Index : GroupedLocationIndexes)
-    		{
-    			if (Index > LocationIndex && Index < NotProcessedPossibleLocations.Num()) --Index;
-    		}
-    	}
+			if (MatchingNodeIndex == INDEX_NONE)
+			{
+				NotProcessedSinglePossibleLocations.Add(GroupedLocations[i]);
 
-    }
+				int32 LocationIndex = GroupedLocationIndexes[i];
+				NotProcessedPossibleLocations.RemoveAt(LocationIndex);
+
+				// Same gross TODO: stuff here as below, but ... it will work for now
+				for (int32& Index : GroupedLocationIndexes)
+				{
+					if (Index > LocationIndex && Index < NotProcessedPossibleLocations.Num())
+					{
+						--Index;
+					}
+				}
+				continue;
+			}
+
+			FResourceNodeData& MatchingNode = NotProcessedResourceNodes[MatchingNodeIndex];
+			MatchingNode.Purity = AssignedPurity;
+			MatchingNode.Location = GroupedLocations[i];
+			ProcessedResourceNodes.Add(MatchingNode);
+			PurityManager->DecrementAvailablePurities(MatchingNode.ResourceClass, AssignedPurity);
+
+			int32 LocationIndex = GroupedLocationIndexes[i];
+			NotProcessedPossibleLocations.RemoveAt(LocationIndex);
+			NotProcessedResourceNodes.RemoveAt(MatchingNodeIndex);
+
+			// To resolve an issue from removing this NotProcessedPossibleLocation, the disgusting way to fix it
+			// is to do this ... maybe it's better just to search and remove the location rather than this nonsense
+			// but that's another TODO: item
+			for (int32& Index : GroupedLocationIndexes)
+			{
+				if (Index > LocationIndex && Index < NotProcessedPossibleLocations.Num())
+				{
+					--Index;
+				}
+			}
+		}
+	}
 
 	// Add remaining locations to NotProcessedSinglePossibleLocations
 	NotProcessedSinglePossibleLocations.Append(NotProcessedPossibleLocations);
-    NotProcessedSingleResourceNodes.Append(NotProcessedResourceNodes);
-	
+	NotProcessedSingleResourceNodes.Append(NotProcessedResourceNodes);
+
 	// Assign remaining single locations to non-groupable nodes
 	for (int32 i = 0; i < NotProcessedSinglePossibleLocations.Num() && i < NotProcessedSingleResourceNodes.Num(); ++i)
 	{
 		NotProcessedSingleResourceNodes[i].Location = NotProcessedSinglePossibleLocations[i];
-		NotProcessedSingleResourceNodes[i].Purity = AssignPurity(NotProcessedSingleResourceNodes[i].ResourceClass, NotProcessedSingleResourceNodes[i].Location, bUsePurityExclusion);
-		PurityManager->DecrementAvailablePurities(NotProcessedSingleResourceNodes[i].ResourceClass, NotProcessedSingleResourceNodes[i].Purity);
+		NotProcessedSingleResourceNodes[i].Purity = AssignPurity(NotProcessedSingleResourceNodes[i].ResourceClass,
+		                                                         NotProcessedSingleResourceNodes[i].Location,
+		                                                         bUsePurityExclusion);
+		PurityManager->DecrementAvailablePurities(NotProcessedSingleResourceNodes[i].ResourceClass,
+		                                          NotProcessedSingleResourceNodes[i].Purity);
 		ProcessedResourceNodes.Add(NotProcessedSingleResourceNodes[i]);
 	}
 }
 
-EResourcePurity UResourceNodeRandomizer::AssignPurity(const FName ResourceClass, const FVector& NodeLocation, bool bUsePurityExclusion) const
+EResourcePurity UResourceNodeRandomizer::AssignPurity(const FName ResourceClass, const FVector& NodeLocation,
+                                                      bool bUsePurityExclusion) const
 {
 	// Check if the location falls within a purity zone
 	if (bUsePurityExclusion)
@@ -274,10 +308,16 @@ EResourcePurity UResourceNodeRandomizer::AssignPurity(const FName ResourceClass,
 
 
 void UResourceNodeRandomizer::GroupLocations(const FVector& StartingLocation, const TArray<FVector>& Locations,
-											 TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
-											 TSet<int32>& VisitedIndexes)
+                                             TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
+                                             TSet<int32>& VisitedIndexes)
 {
 	int32 StartingIndex = Locations.IndexOfByKey(StartingLocation);
+
+	if (VisitedIndexes.Contains(StartingIndex))
+	{
+		return;
+	}
+
 	OutGroupedLocations.Add(StartingLocation);
 
 	VisitedIndexes.Add(StartingIndex);
@@ -293,26 +333,30 @@ void UResourceNodeRandomizer::GroupLocations(const FVector& StartingLocation, co
 	}
 }
 
-//TODO: this is temporary until I implement handling geysers and purity
-void UResourceNodeRandomizer::FilterNodes(TArray<FResourceNodeData>& Nodes)
+//TODO: Filters out nodes, since we no longer do it in the collection step
+TArray<FResourceNodeData> UResourceNodeRandomizer::FilterNodes(TArray<FResourceNodeData>& Nodes)
 {
-	Nodes.RemoveAll([](const FResourceNodeData& Node)
+	TArray<FResourceNodeData> NonRandomizedNodes;
+
+	Nodes.RemoveAll([&NonRandomizedNodes](const FResourceNodeData& Node)
 	{
-		// Remove if no resource class and geysers
-		if (Node.ResourceClass.IsNone() || Node.ResourceClass == FName("Desc_Geyser_C"))
+		// Remove all non-valid classes
+		if (!UResourceRouletteUtility::IsValidFilteredResourceClass(Node.ResourceClass))
 		{
+			NonRandomizedNodes.Add(Node);
 			return true;
 		}
 
-		// Remove liquid oilfracking satellites
-		if (Node.ResourceClass == FName("Desc_LiquidOil_C") && Node.ResourceNodeType == EResourceNodeType::FrackingSatellite)
+		// Remove liquid oilfracking satellites, as they have the right class but wrong resource type
+		if (Node.ResourceClass == FName("Desc_LiquidOil_C") && Node.ResourceNodeType ==
+			EResourceNodeType::FrackingSatellite)
 		{
 			return true;
 		}
 		return false;
 	});
+	return NonRandomizedNodes;
 }
-
 
 
 /// Sorts primarily by ResourceClass and secondarily by Purity, in Pure/Normal/Impure order
