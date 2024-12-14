@@ -20,6 +20,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "SessionSettings/SessionSettingsManager.h"
 #include "Async/ParallelFor.h"
+#include "Buildables/FGBuildableFrackingExtractor.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogResourceRoulette, Log, All);
 
@@ -601,7 +602,8 @@ void UResourceRouletteUtility::AssociateExtractorsWithNodes(
 	{
 		AFGBuildableResourceExtractor* ResourceExtractor = *It;
 
-		if (ResourceExtractor->IsA(AFGBuildableWaterPump::StaticClass()))
+		if (ResourceExtractor->IsA(AFGBuildableWaterPump::StaticClass()) ||
+			ResourceExtractor->IsA(AFGBuildableFrackingExtractor::StaticClass()))
 		{
 			continue;
 		}
