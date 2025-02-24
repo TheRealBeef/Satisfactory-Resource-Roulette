@@ -20,6 +20,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "SessionSettings/SessionSettingsManager.h"
 #include "Async/ParallelFor.h"
+#include "Buildables/FGBuildableFrackingActivator.h"
 #include "Buildables/FGBuildableFrackingExtractor.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogResourceRoulette, Log, All);
@@ -603,7 +604,8 @@ void UResourceRouletteUtility::AssociateExtractorsWithNodes(
 		AFGBuildableResourceExtractor* ResourceExtractor = *It;
 
 		if (ResourceExtractor->IsA(AFGBuildableWaterPump::StaticClass()) ||
-			ResourceExtractor->IsA(AFGBuildableFrackingExtractor::StaticClass()))
+			ResourceExtractor->IsA(AFGBuildableFrackingExtractor::StaticClass()) ||
+			ResourceExtractor->IsA(AFGBuildableFrackingActivator::StaticClass()))
 		{
 			continue;
 		}
@@ -875,7 +877,33 @@ void UResourceRouletteUtility::ScannerGenerateNodeClusters(UWorld* World, float 
 	});
 
 	ResourceScanner->mNodeClusters = NodeClusters;
+
+	// TMap<TSubclassOf<UFGResourceDescriptor>, int32> ClusterCountsByResourceClass;
+	// for (const FNodeClusterData& Cluster : NodeClusters)
+	// {
+	// 	if (Cluster.ResourceDescriptor)
+	// 	{
+	// 		ClusterCountsByResourceClass.FindOrAdd(Cluster.ResourceDescriptor)++;
+	// 	}
+	// }
+	//
+	// FString ResourceClassDetails;
+	// for (const auto& Pair : ClusterCountsByResourceClass)
+	// {
+	// 	if (Pair.Key)
+	// 	{
+	// 		FString ResourceClassName = Pair.Key->GetName();
+	// 		int32 ClusterCount = Pair.Value;
+	// 		ResourceClassDetails += FString::Printf(TEXT("%s: %d clusters\n"), *ResourceClassName, ClusterCount);
+	// 	}
+	// }
+	//
 	// FResourceRouletteUtilityLog::Get().LogMessage(
-	// 	FString::Printf(TEXT("ScannerGenerateNodeClusters: Generated %d clusters across %d threads"),
-	// 	                NodeClusters.Num(), NumThreads), ELogLevel::Warning);
+	// FString::Printf(TEXT("ScannerGenerateNodeClusters: Generated %d clusters across %d threads.\n%s"),
+	// 				NodeClusters.Num(), NumThreads, *ResourceClassDetails),
+	// ELogLevel::Warning);
+
+	// FResourceRouletteUtilityLog::Get().LogMessage(
+		// FString::Printf(TEXT("ScannerGenerateNodeClusters: Generated %d clusters across %d threads"),
+		                // NodeClusters.Num(), NumThreads), ELogLevel::Warning);
 }

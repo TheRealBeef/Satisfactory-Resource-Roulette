@@ -54,6 +54,11 @@ This can be used if you intend to remove the mod permanently, it can also be use
 7. Now, when you load the game without Resource Roulette, you will have no issues
 
 ## Changelog
+- Version 1.1.6
+  - Fix checkbox for Bauxite randomization missing causing it not to be randomized - Thanks Ryder17z for the report
+  - Cleaned up edge case for node randomization processing causing a crash when clicking the re-roll button a lot.
+- Version 1.1.5
+  -  Fix fracking node extractor related crash - thanks EvilStudmuffin81 for the report
 - Version 1.1.4
   - Due to bugfixing, randomization will change slightly. However, if you are happy with the distribution you currently have, the mod will support your existing randomization as well. If you want to update to the "proper" randomization, either re-roll or click "Reset nodes" 
   - Added custom profiling library to identify and improve performance. 

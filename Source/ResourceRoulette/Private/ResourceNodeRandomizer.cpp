@@ -38,6 +38,7 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World,
 	NotTouchedResourceNodes.Empty();
 	NotProcessedSinglePossibleLocations.Empty();
 	NotProcessedSingleResourceNodes.Empty();
+	ProcessedResourceNodes.Empty();
 
 	// Oops, not init to zero resulting in some variance when re-rolling and init.
 	SingleNodeCounter = 0;
@@ -157,6 +158,10 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 		TArray<FVector> GroupedLocations;
 		TArray<int32> GroupedLocationIndexes;
 		TSet<int32> VisitedIndexes;
+		GroupedLocations.Empty();
+		GroupedLocationIndexes.Empty();
+		VisitedIndexes.Empty();
+
 		GroupLocations(StartingLocation, NotProcessedPossibleLocations, GroupedLocations, GroupedLocationIndexes,
 		               VisitedIndexes);
 
@@ -179,7 +184,7 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 		if (AssignedPurity == EResourcePurity::RP_MAX)
 		{
 			// If no purity is available, skip this node ... something is wrong
-			FResourceRouletteUtilityLog::Get().LogMessage(
+			FResourceRouletteUtilityLog::Get().LogMessage(	
 				FString::Printf(
 					TEXT("No purity is available for node at location: %s"), *CurrentNodeToProcess.Location.ToString()),
 				ELogLevel::Warning);
@@ -224,7 +229,6 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 				NotProcessedSinglePossibleLocations.Add(GroupedLocations[i]);
 
 				int32 LocationIndex = GroupedLocationIndexes[i];
-				NotProcessedPossibleLocations.RemoveAt(LocationIndex);
 
 				// Same gross TODO: stuff here as below, but ... it will work for now
 				for (int32& Index : GroupedLocationIndexes)
@@ -234,6 +238,9 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 						--Index;
 					}
 				}
+
+
+				NotProcessedPossibleLocations.RemoveAt(LocationIndex);
 				continue;
 			}
 
@@ -244,8 +251,6 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 			PurityManager->DecrementAvailablePurities(MatchingNode.ResourceClass, AssignedPurity);
 
 			int32 LocationIndex = GroupedLocationIndexes[i];
-			NotProcessedPossibleLocations.RemoveAt(LocationIndex);
-			NotProcessedResourceNodes.RemoveAt(MatchingNodeIndex);
 
 			// To resolve an issue from removing this NotProcessedPossibleLocation, the disgusting way to fix it
 			// is to do this ... maybe it's better just to search and remove the location rather than this nonsense
@@ -257,6 +262,11 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 					--Index;
 				}
 			}
+
+			NotProcessedPossibleLocations.RemoveAt(LocationIndex);
+			NotProcessedResourceNodes.RemoveAt(MatchingNodeIndex);
+
+
 		}
 	}
 
@@ -313,7 +323,7 @@ void UResourceNodeRandomizer::GroupLocations(const FVector& StartingLocation, co
 {
 	int32 StartingIndex = Locations.IndexOfByKey(StartingLocation);
 
-	if (VisitedIndexes.Contains(StartingIndex))
+	if (StartingIndex == INDEX_NONE || VisitedIndexes.Contains(StartingIndex))
 	{
 		return;
 	}
