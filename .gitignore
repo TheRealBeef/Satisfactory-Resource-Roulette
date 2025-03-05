@@ -74,3 +74,5 @@ Plugins/*/Intermediate/*
 DerivedDataCache/*
 /.idea/
 /NumberCrunching/.ipynb_checkpoints/*
+/DoxygenOutput/
+/NumberCrunching/
