@@ -47,6 +47,7 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World,
 	USessionSettingsManager* SessionSettings = GetWorld()->GetSubsystem<USessionSettingsManager>();
 	bool bUsePurityExclusion = SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.UsePurityExclusion");
 	bool bUseFullRandomization = SessionSettings->GetBoolOptionValue("ResourceRoulette.RandOpt.UseFullRandomization");
+	int32 MaxNodesPerGroup = SessionSettings->GetIntOptionValue("ResourceRoulette.GroupOpt.MaxNumPerGroup");
 	const int32 Seed = SeedManager->GetGlobalSeed();
 	TArray<FResourceNodeData> NotProcessedResourceNodes = CollectionManager->GetCollectedResourceNodes();
 
@@ -75,7 +76,7 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World,
 		ProcessedResourceNodes.Add(NotTouchedResourceNodes[i]);
 	}
 
-	ProcessNodes(NotProcessedResourceNodes, NotProcessedPossibleLocations, bUsePurityExclusion, bUseFullRandomization);
+	ProcessNodes(NotProcessedResourceNodes, NotProcessedPossibleLocations, bUsePurityExclusion, bUseFullRandomization, MaxNodesPerGroup);
 
 	if (AResourceRouletteSubsystem* ResourceRouletteSubsystem = AResourceRouletteSubsystem::Get(World))
 	{
@@ -90,7 +91,7 @@ void UResourceNodeRandomizer::RandomizeWorldResources(const UWorld* World,
 /// @param bUseFullRandomization
 void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes,
                                            TArray<FVector>& NotProcessedPossibleLocations, bool
-                                           bUsePurityExclusion, bool bUseFullRandomization)
+                                           bUsePurityExclusion, bool bUseFullRandomization, int32 MaxNodesPerGroup)
 {
 	RR_PROFILE();
 	// Get list of resources we shouldn't group
@@ -163,7 +164,7 @@ void UResourceNodeRandomizer::ProcessNodes(TArray<FResourceNodeData>& NotProcess
 		VisitedIndexes.Empty();
 
 		GroupLocations(StartingLocation, NotProcessedPossibleLocations, GroupedLocations, GroupedLocationIndexes,
-		               VisitedIndexes);
+		               VisitedIndexes, MaxNodesPerGroup);
 
 		if (GroupedLocations.Num() == 1)
 		{
@@ -319,7 +320,7 @@ EResourcePurity UResourceNodeRandomizer::AssignPurity(const FName ResourceClass,
 
 void UResourceNodeRandomizer::GroupLocations(const FVector& StartingLocation, const TArray<FVector>& Locations,
                                              TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
-                                             TSet<int32>& VisitedIndexes)
+                                             TSet<int32>& VisitedIndexes, int32 MaxNodesPerGroup)
 {
 	int32 StartingIndex = Locations.IndexOfByKey(StartingLocation);
 
@@ -335,10 +336,15 @@ void UResourceNodeRandomizer::GroupLocations(const FVector& StartingLocation, co
 
 	for (int32 i = 0; i < Locations.Num(); ++i)
 	{
+		if (OutGroupedLocations.Num() >= MaxNodesPerGroup)
+		{
+			break;
+		}
+
 		FVector Location = Locations[i];
 		if (FVector::Dist(StartingLocation, Location) <= GroupingRadius && !VisitedIndexes.Contains(i))
 		{
-			GroupLocations(Location, Locations, OutGroupedLocations, OutGroupedIndexes, VisitedIndexes);
+			GroupLocations(Location, Locations, OutGroupedLocations, OutGroupedIndexes, VisitedIndexes, MaxNodesPerGroup);
 		}
 	}
 }

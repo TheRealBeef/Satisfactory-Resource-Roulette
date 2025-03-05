@@ -26,10 +26,10 @@ private:
 	static void PseudorandomizeLocations(TArray<FVector>& Locations, int32 Seed);
 	void GroupLocations(const FVector& StartingLocation, const TArray<FVector>& Locations,
 	                    TArray<FVector>& OutGroupedLocations, TArray<int32>& OutGroupedIndexes,
-	                    TSet<int32>& VisitedIndexes);
+	                    TSet<int32>& VisitedIndexes, int32 MaxNodesPerGroup);
 	void ProcessNodes(TArray<FResourceNodeData>& NotProcessedResourceNodes,
 	                  TArray<FVector>& NotProcessedPossibleLocations, bool
-	                  bUsePurityExclusion, bool bUseFullRandomization);
+	                  bUsePurityExclusion, bool bUseFullRandomization, int32 MaxNodesPerGroup);
 	EResourcePurity AssignPurity(FName ResourceClass, const FVector& NodeLocation, bool bUsePurityExclusion) const;
 
 	UPROPERTY()	UResourceCollectionManager* CollectionManager;
