@@ -57,7 +57,7 @@ private:
 	UPROPERTY(SaveGame)	int32 SavedSeed;
 	int32 SessionSeed = -1;
 
-	UPROPERTY(SaveGame)	bool SavedAlreadySpawned = false;;
+	UPROPERTY(SaveGame)	bool SavedAlreadySpawned = false;
 	bool SessionAlreadySpawned = false;
 
 	UPROPERTY(SaveGame)	FString SavedModVersion;
