@@ -54,6 +54,11 @@ This can be used if you intend to remove the mod permanently, it can also be use
 7. Now, when you load the game without Resource Roulette, you will have no issues
 
 ## Changelog
+- Version 1.1.7
+  - Fix a "save leak" causing load times to increase over time.
+  - Improved behavior of grouping setting to allow for larger "regions of resources" if desired
+  - Increase Max Number of Nodes per Group to 8
+  - Update for SML 3.10
 - Version 1.1.6
   - Fix checkbox for Bauxite randomization missing causing it not to be randomized - Thanks Ryder17z for the report
   - Cleaned up edge case for node randomization processing causing a crash when clicking the re-roll button a lot.

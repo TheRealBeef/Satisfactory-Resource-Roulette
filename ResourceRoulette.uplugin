@@ -28,6 +28,6 @@
 			"SemVersion": "^3.9.1"
 		}
 	],
-	"SemVersion": "1.1.6",
-	"GameVersion": ">=382498"
+	"SemVersion": "1.1.7",
+	"GameVersion": ">=383729"
 }
