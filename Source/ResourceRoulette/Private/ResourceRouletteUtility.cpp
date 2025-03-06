@@ -2,6 +2,7 @@
 #include "Misc/Paths.h"
 #include "EngineUtils.h"
 #include "FGCharacterPlayer.h"
+#include "FGCliffActor.h"
 #include "HAL/FileManager.h"
 #include "Resources/FGResourceNode.h"
 #include "HAL/IConsoleManager.h"
@@ -478,8 +479,7 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 				{
 					continue;
 				}
-				if (HitActor->IsA(ALandscapeStreamingProxy::StaticClass()) || HitActor->IsA(
-					AStaticMeshActor::StaticClass()))
+				if (HitActor->IsA(ALandscapeStreamingProxy::StaticClass()) || HitActor->IsA(AStaticMeshActor::StaticClass()) || AFGCliffActor::StaticClass())
 				{
 					HitPoints.Add(Hit.ImpactPoint);
 					bHitPointAdded = true;
@@ -487,7 +487,7 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 				// else
 				// {
 				// 	FString ClassName = HitActor->GetClass()->GetName();
-				// 	FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Ignored Hit Class: %s"), *ClassName);, ELogLevel::Warning);
+				// 	FResourceRouletteUtilityLog::Get().LogMessage(FString::Printf(TEXT("Ignored Hit Class: %s"), *ClassName), ELogLevel::Warning);
 				// }
 			}
 		}
