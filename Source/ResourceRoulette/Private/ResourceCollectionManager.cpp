@@ -84,6 +84,10 @@ void UResourceCollectionManager::CollectWorldResources(const UWorld* World)
 					}
 				}
 				// and then the actor
+				if (AFGActorRepresentationManager* RepManager = AFGActorRepresentationManager::Get(GetWorld()))
+				{
+					RepManager->RemoveRepresentationOfActor(ResourceNode);
+				}
 				ResourceNode->Destroy();
 				continue;
 			}

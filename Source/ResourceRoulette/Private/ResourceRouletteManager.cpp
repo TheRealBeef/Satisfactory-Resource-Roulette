@@ -153,6 +153,10 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 						MeshComponent->DestroyComponent();
 					}
 				}
+				if (AFGActorRepresentationManager* RepManager = AFGActorRepresentationManager::Get(World))
+				{
+					RepManager->RemoveRepresentationOfActor(ResourceNode);
+				}
 				ResourceNode->Destroy();
 			}
 			bIsResourcesScanned = true;
@@ -196,9 +200,19 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 					continue;
 				}
 
-				if (!UResourceRouletteUtility::IsValidAllInfiniteResourceNode(ResourceNode))
+
+				// This is a somewhat temp fix to catch the zombie nodes we're making and clear them out on laod
+				// TODO - Longer term we need to move to a subclass and prevent the ShouldSave_Implementation() from returning True
+				const FName ResourceClassName = ResourceNode && ResourceNode->GetResourceClass()
+										? ResourceNode->GetResourceClass()->GetFName()
+										: NAME_None;
+
+				if (ResourceClassName != NAME_None)
 				{
-					continue;
+					if (!UResourceRouletteUtility::IsValidAllInfiniteResourceNode(ResourceNode))
+					{
+						continue;
+					}
 				}
 				TArray<UStaticMeshComponent*> MeshComponents;
 				ResourceNode->GetComponents(MeshComponents);
@@ -210,6 +224,10 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 						MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 						MeshComponent->DestroyComponent();
 					}
+				}
+				if (AFGActorRepresentationManager* RepManager = AFGActorRepresentationManager::Get(World))
+				{
+					RepManager->RemoveRepresentationOfActor(ResourceNode);
 				}
 				ResourceNode->Destroy();
 			}
