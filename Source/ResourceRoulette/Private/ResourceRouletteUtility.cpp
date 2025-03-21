@@ -479,7 +479,7 @@ bool UResourceRouletteUtility::CalculateLocationAndRotationForNode(FResourceNode
 				{
 					continue;
 				}
-				if (HitActor->IsA(ALandscapeStreamingProxy::StaticClass()) || HitActor->IsA(AStaticMeshActor::StaticClass()) || AFGCliffActor::StaticClass())
+				if (HitActor->IsA(ALandscapeStreamingProxy::StaticClass()) || HitActor->IsA(AStaticMeshActor::StaticClass()) || HitActor->IsA(AFGCliffActor::StaticClass()))
 				{
 					HitPoints.Add(Hit.ImpactPoint);
 					bHitPointAdded = true;
