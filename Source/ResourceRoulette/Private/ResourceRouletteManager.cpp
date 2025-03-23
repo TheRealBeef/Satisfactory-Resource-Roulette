@@ -85,18 +85,17 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 
 		// Here we can add classnames/tags for mods we want to have compatible with our mod
 		// Buildable Resource Nodes Redux
-		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Base_ResourceNode_C",
-		                                                            "BuildableResourceNodeReduxObject");
-		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Build_Base_ResNode_C",
-		                                                            "BuildableResourceNodeReduxObject");
-		ResourceRouletteCompatibilityManager::RegisterResourceClass("BuildEffect_Default_C", "BuildEffect_Default_C");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Base_ResourceNode_C","NoTouchie");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("BRN_Build_Base_ResNode_C","NoTouchie");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("BuildEffect_Default_C", "NoTouchie");
 
 		// Resource Node Creator
 		// ResourceRouletteCompatibilityManager::RegisterResourceClass("BP_ResourceNode_C", "FGBuildable");
-		ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildable", "FGBuildable");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildable", "NoTouchie");
 
 		// General Holograms
-		ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildableHologram", "FGBuildable");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("FGBuildableHologram", "NoTouchie");
+		ResourceRouletteCompatibilityManager::RegisterResourceClass("FGHologram", "NoTouchie");
 
 		RegisteredTags = ResourceRouletteCompatibilityManager::GetRegisteredTags();
 		ResourceRouletteCompatibilityManager::TagExistingActors(World);
@@ -184,7 +183,6 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 			for (TActorIterator<AFGResourceNode> It(World); It; ++It)
 			{
 				AFGResourceNode* ResourceNode = *It;
-
 				// Skip any of the compatibility tagged ones
 				bool bIsTagged = false;
 				for (const FName& RegisteredTag : RegisteredTags)
@@ -200,7 +198,6 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 					continue;
 				}
 
-
 				// This is a somewhat temp fix to catch the zombie nodes we're making and clear them out on laod
 				// TODO - Longer term we need to move to a subclass and prevent the ShouldSave_Implementation() from returning True
 				const FName ResourceClassName = ResourceNode && ResourceNode->GetResourceClass()
@@ -210,6 +207,13 @@ void UResourceRouletteManager::ScanWorldResourceNodes(UWorld* World, bool bRerol
 				if (ResourceClassName != NAME_None)
 				{
 					if (!UResourceRouletteUtility::IsValidAllInfiniteResourceNode(ResourceNode))
+					{
+						continue;
+					}
+
+					if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && (ResourceNode->
+						GetResourceNodeType() == EResourceNodeType::FrackingSatellite || ResourceNode->GetResourceNodeType() ==
+						EResourceNodeType::FrackingCore))
 					{
 						continue;
 					}
@@ -438,9 +442,10 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 		}
 	}
 
-	TArray<UStaticMeshComponent*> ComponentsToDestroy;
+	TSet<UStaticMeshComponent*> ComponentsToDestroy;
 	ParallelFor(WorldMeshComponents.Num(), [&](int32 Index)
 	{
+		bool bIsTagged = false;
 		UStaticMeshComponent* StaticMeshComponent = WorldMeshComponents[Index];
 		if (StaticMeshComponent)
 		{
@@ -448,17 +453,31 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 			{
 				if (RegisteredTags.Contains(Tag) || Tag == ResourceRouletteTag)
 				{
-					return;
+					bIsTagged = true;
 				}
 			}
 
-			if (const UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh())
+			if (AActor* Owner = StaticMeshComponent->GetOwner())
 			{
-				FName MeshPath = FName(*StaticMesh->GetPathName());
-				if (MeshesToDestroy.Contains(MeshPath))
+				for (const FName& Tag : Owner->Tags)
 				{
-					FScopeLock Lock(&CriticalSection);
-					ComponentsToDestroy.Add(StaticMeshComponent);
+					if (RegisteredTags.Contains(Tag) || Tag == ResourceRouletteTag)
+					{
+						bIsTagged = true;
+					}
+				}
+			}
+
+			if (!bIsTagged)
+			{
+				if (const UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh())
+				{
+					FName MeshPath = FName(*StaticMesh->GetPathName());
+					if (MeshesToDestroy.Contains(MeshPath))
+					{
+						FScopeLock Lock(&CriticalSection);
+						ComponentsToDestroy.Add(StaticMeshComponent);
+					}
 				}
 			}
 		}
@@ -477,7 +496,7 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 		// 	}
 		// 	FResourceRouletteUtilityLog::Get().LogMessage(
 		// 		FString::Printf(
-		// 			TEXT("Destroying mesh %s, class heirarchy is: %s"), 
+		// 			TEXT("Destroying mesh %s, class heirarchy is: %s"),
 		// 			*StaticMeshComponent->GetName(), *ClassHierarchy),
 		// 		ELogLevel::Debug
 		// 	);
@@ -488,6 +507,16 @@ void UResourceRouletteManager::UpdateWorldResourceNodes(const UWorld* World) con
 	}
 
 	TArray<UDecalComponent*> DecalComponents;
+
+	for (TObjectIterator<UDecalComponent> It; It; ++It)
+	{
+		UDecalComponent* DecalComponent = *It;
+		if (DecalComponent && DecalComponent->GetWorld() == World)
+		{
+			DecalComponents.Add(DecalComponent);
+		}
+	}
+
 	for (UDecalComponent* DecalComponent : DecalComponents)
 	{
 		if (DecalComponent && !DecalComponent->ComponentTags.Contains(ResourceRouletteTag))
@@ -558,8 +587,9 @@ void UResourceRouletteManager::RemoveResourceRouletteNodes()
 			continue;
 		}
 
-		if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->
-			GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
+		if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && (ResourceNode->
+			GetResourceNodeType() == EResourceNodeType::FrackingSatellite || ResourceNode->GetResourceNodeType() ==
+			EResourceNodeType::FrackingCore))
 		{
 			continue;
 		}
@@ -577,6 +607,7 @@ void UResourceRouletteManager::RemoveResourceRouletteNodes()
 			}
 		}
 		TArray<UDecalComponent*> DecalComponents;
+		ResourceNode->GetComponents(DecalComponents);
 		for (UDecalComponent* DecalComponent : DecalComponents)
 		{
 			if (DecalComponent)
