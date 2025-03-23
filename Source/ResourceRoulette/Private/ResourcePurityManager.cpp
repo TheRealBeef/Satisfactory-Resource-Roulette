@@ -120,8 +120,9 @@ void UResourcePurityManager::CollectWorldPurities(const UWorld* World)
 
 		if (UResourceRouletteUtility::IsValidAllInfiniteResourceNode(ResourceNode))
 		{
-			if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && ResourceNode->
-				GetResourceNodeType() == EResourceNodeType::FrackingSatellite)
+			if (ResourceNode->GetResourceClass()->GetFName() == FName("Desc_LiquidOil_C") && (ResourceNode->
+				GetResourceNodeType() == EResourceNodeType::FrackingSatellite || ResourceNode->GetResourceNodeType() ==
+				EResourceNodeType::FrackingCore))
 			{
 				continue;
 			}
