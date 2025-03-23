@@ -610,6 +610,24 @@ void UResourceRouletteUtility::AssociateExtractorsWithNodes(
 			continue;
 		}
 
+		AFGResourceNode* ExistingNode = Cast<AFGResourceNode>(ResourceExtractor->mExtractableResource);
+		if (ExistingNode)
+		{
+			const FName ExistingNodeClassName = ExistingNode->GetClass()->GetFName();
+
+
+			// FString NodeName = ExistingNode->GetName();
+			// FString NodeClass = ExistingNode->GetClass()->GetName();
+			// FResourceRouletteUtilityLog::Get().LogMessage(
+			// 	FString::Printf(TEXT("Existing node association - %s - %s"), *NodeName, *NodeClass),
+			// 	ELogLevel::Warning);
+
+			if (ExistingNodeClassName != FName("BP_ResourceNode_C"))
+			{
+				continue;
+			}
+		}
+
 		FVector ExtractorLocation = ResourceExtractor->GetActorLocation() - FVector(0.0f, 0.0f, 150.0f);
 		AFGResourceNode* ClosestNode = nullptr;
 		float ClosestDistance = MinerAssociationRadius;
@@ -659,6 +677,25 @@ void UResourceRouletteUtility::AssociateExtractorsWithNodes(
 
 		FVector MinerLocation = PortableMiner->GetActorLocation();
 		AFGResourceNode* ClosestNode = nullptr;
+
+		AFGResourceNode* ExistingNode = Cast<AFGResourceNode>(PortableMiner->mExtractResourceNode);
+		if (ExistingNode)
+		{
+			const FName ExistingNodeClassName = ExistingNode->GetClass()->GetFName();
+
+
+			// FString NodeName = ExistingNode->GetName();
+			// FString NodeClass = ExistingNode->GetClass()->GetName();
+			// FResourceRouletteUtilityLog::Get().LogMessage(
+			// 	FString::Printf(TEXT("Existing node association - %s - %s"), *NodeName, *NodeClass),
+			// 	ELogLevel::Warning);
+
+			if (ExistingNodeClassName != FName("BP_ResourceNode_C"))
+			{
+				continue;
+			}
+		}
+
 		float ClosestDistance = PortableMinerRadius;
 
 		for (const FResourceNodeData& NodeData : ProcessedNodes)
@@ -762,7 +799,8 @@ void UResourceRouletteUtility::ScannerGenerateNodeClusters(UWorld* World, float 
 	RR_PROFILE();
 	if (!World)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ScannerGenerateNodeClusters: Invalid World!"));
+		FResourceRouletteUtilityLog::Get().LogMessage("ScannerGenerateNodeClusters: Invalid World!",
+											  ELogLevel::Warning);
 		return;
 	}
 
