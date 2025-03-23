@@ -364,8 +364,8 @@ TArray<FResourceNodeData> UResourceNodeRandomizer::FilterNodes(TArray<FResourceN
 		}
 
 		// Remove liquid oilfracking satellites, as they have the right class but wrong resource type
-		if (Node.ResourceClass == FName("Desc_LiquidOil_C") && Node.ResourceNodeType ==
-			EResourceNodeType::FrackingSatellite)
+		if (Node.ResourceClass == FName("Desc_LiquidOil_C") && (Node.ResourceNodeType ==
+			EResourceNodeType::FrackingSatellite || Node.ResourceNodeType == EResourceNodeType::FrackingCore))
 		{
 			return true;
 		}
