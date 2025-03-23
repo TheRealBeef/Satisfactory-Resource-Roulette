@@ -51,15 +51,36 @@ void ResourceRouletteCompatibilityManager::SetupActorSpawnCallback(UWorld* World
 	if (!SpawnCallbackHandle.IsValid())
 	{
 		SpawnCallbackHandle = World->AddOnActorSpawnedHandler(FOnActorSpawned::FDelegate::CreateLambda(
-			[](AActor* SpawnedActor)
+			[World](AActor* SpawnedActor)
 			{
-				if (SpawnedActor)
+				// if (SpawnedActor)
+				// {
+				// 	// FResourceRouletteUtilityLog::Get().LogMessage(
+				// 	// 	FString::Printf(TEXT("New Actor Spawned: %s."), *SpawnedActor->GetName()),
+				// 	// 	ELogLevel::Debug
+				// 	// );
+				//
+				// 	FName Tag;
+				// 	if (IsCompatibilityClass(SpawnedActor, Tag))
+				// 	{
+				// 		TagActorAndMesh(SpawnedActor, Tag);
+				// 	}
+				// }
+				if (!SpawnedActor)
+					return;
+
+				FName Tag;
+				if (ResourceRouletteCompatibilityManager::IsCompatibilityClass(SpawnedActor, Tag))
 				{
-					FName Tag;
-					if (IsCompatibilityClass(SpawnedActor, Tag))
+					World->GetTimerManager().SetTimerForNextTick([World, SpawnedActor, Tag]()
 					{
-						TagActorAndMesh(SpawnedActor, Tag);
-					}
+						ResourceRouletteCompatibilityManager::TagActorAndMesh(SpawnedActor, Tag);
+
+						// FResourceRouletteUtilityLog::Get().LogMessage(
+						// 	FString::Printf(TEXT("Tagged Actor & Mesh: %s with tag: %s"),
+						// 		*SpawnedActor->GetName(), *Tag.ToString()),
+						// 	ELogLevel::Debug);
+					});
 				}
 			}));
 
@@ -80,20 +101,19 @@ void ResourceRouletteCompatibilityManager::TagActorAndMesh(AActor* Actor, const 
 		Actor->Tags.Add(Tag);
 	}
 
-	TArray<UActorComponent*> Components = Actor->GetComponents().Array();
-	for (UActorComponent* Component : Components)
+	TArray<UStaticMeshComponent*> Components;
+	Actor->GetComponents<UStaticMeshComponent>(Components);
+
+	for (UStaticMeshComponent* MeshComp : Components)
 	{
-		if (UStaticMeshComponent* MeshComp = Cast<UStaticMeshComponent>(Component))
+		if (MeshComp && !MeshComp->ComponentTags.Contains(Tag))
 		{
-			if (!MeshComp->ComponentTags.Contains(Tag))
-			{
-				MeshComp->ComponentTags.Add(Tag);
-				// FResourceRouletteUtilityLog::Get().LogMessage(
-				//     FString::Printf(TEXT("Tagged Mesh Component: %s of Actor: %s with Tag: %s"),
-				//         *MeshComp->GetName(), *Actor->GetName(), *Tag.ToString()),
-				//     ELogLevel::Debug
-				// );
-			}
+			MeshComp->ComponentTags.Add(Tag);
+			// FResourceRouletteUtilityLog::Get().LogMessage(
+			//     FString::Printf(TEXT("Tagged Mesh Component: %s of Actor: %s with Tag: %s"),
+			//         *MeshComp->GetName(), *Actor->GetName(), *Tag.ToString()),
+			//     ELogLevel::Debug
+			// );
 		}
 	}
 }
