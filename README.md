@@ -54,6 +54,12 @@ This can be used if you intend to remove the mod permanently, it can also be use
 7. Now, when you load the game without Resource Roulette, you will have no issues
 
 ## Changelog
+- Version 1.1.8
+  - Improve node "settling" logic on cliff surfaces to follow terrain contours
+  - Fix extractors failing to re-associate with modded nodes
+  - Prevent crude oil fracking cores from being orphaned from their satellites
+  - Improved callback logic for spawns to ensure better compatibility with modded resources like BRN
+  - Fix crude oil decals weren't always removed
 - Version 1.1.7
   - Fix a "save leak" causing load times to increase over time.
   - Improved behavior of grouping setting to allow for larger "regions of resources" if desired
