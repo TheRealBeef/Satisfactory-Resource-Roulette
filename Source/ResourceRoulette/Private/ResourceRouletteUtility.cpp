@@ -8,7 +8,7 @@
 #include "HAL/IConsoleManager.h"
 #include "ResourceCollectionManager.h"
 #include "Misc/FileHelper.h"
-#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformFileManager.h"
 #include "Resources/FGResourceNode.h"
 #include "FGPortableMiner.h"
 #include "LandscapeStreamingProxy.h"
